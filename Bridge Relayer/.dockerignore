@@ -1,0 +1,5 @@
+# Abaikan file .env yang berisi password dan kunci
+.env
+
+# Abaikan file log jika ada
+*.log

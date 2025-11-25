@@ -1,0 +1,545 @@
+/* =========================================
+   VITE REACT - HOMELAB DEFI TERMINAL THEME
+   ========================================= */
+
+:root {
+  /* --- PALET WARNA TERMINAL --- */
+  --bg-color: #0d1117;       /* Hitam Background (GitHub Dark) */
+  --card-bg: #161b22;        /* Abu Gelap untuk Panel/Nav */
+  --border-color: #30363d;   /* Warna Garis Batas */
+  
+  --primary: #00ff41;        /* HIJAU NEON (Matrix/Sepolia) */
+  --secondary: #f39c12;      /* ORANYE (Hoodi/Warning) */
+  --blue: #00bcd4;           /* BIRU (Base/Transfer) */
+  --danger: #ff3333;         /* MERAH (Error) */
+  
+  --text-main: #c9d1d9;      /* Putih Tulang (Teks Utama) */
+  --text-muted: #8b949e;     /* Abu-abu (Teks Sekunder) */
+  --text-inverse: #000000;   /* Hitam (Untuk teks di atas tombol hijau) */
+  
+  /* --- TYPOGRAPHY --- */
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+}
+
+/* --- GLOBAL RESET --- */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+#root {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding-top: 40px;
+  padding-bottom: 60px;
+}
+
+/* =========================================
+   LAYOUT UTAMA (CENTERING FIX)
+   ========================================= */
+
+/* Container utama membungkus seluruh aplikasi */
+.app-container {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* KUNCI 1: Memaksa semua anak (Header, Nav, Main) ke tengah */
+  box-sizing: border-box;
+}
+
+/* Batasi lebar konten agar rapi di layar lebar (mirip container Bootstrap) */
+.app-header, 
+.nav-container, 
+main {
+  width: 100%;
+  max-width: 900px; /* Lebar maksimal area kerja */
+}
+
+/* =========================================
+   HEADER
+   ========================================= */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.brand span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.wallet-info {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: var(--primary);
+  padding: 8px 15px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
+}
+
+/* =========================================
+   NAVIGASI (ADAPTASI DARI PHP STYLE)
+   ========================================= */
+.nav-container {
+  padding: 0;
+  margin-bottom: 40px;
+  border-radius: 8px;
+  overflow: hidden; /* Agar border radius bekerja pada anak */
+  border: 1px solid var(--border-color);
+}
+
+nav {
+  display: flex;
+  background-color: var(--card-bg);
+}
+
+.nav-item {
+  padding: 15px 20px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.95rem;
+  flex-grow: 1;    /* Agar lebar terbagi rata (seperti PHP) */
+  text-align: center;
+  transition: all 0.2s ease;
+  border-right: 1px solid var(--border-color); /* Pembatas vertikal */
+}
+
+.nav-item:last-child {
+  border-right: none;
+}
+
+/* Hover State */
+.nav-item:hover {
+  background-color: #21262d;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+/* Active State (Tab Terpilih) */
+.nav-item.active {
+  background-color: var(--primary);
+  color: var(--text-inverse); /* Teks jadi hitam agar kontras */
+  font-weight: bold;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.2); /* Efek kedalaman */
+}
+
+/* =========================================
+   MAIN CONTENT AREA
+   ========================================= */
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* KUNCI 2: Memaksa isi halaman (Home/Bridge) ke tengah */
+}
+
+/* Agar konten spesifik juga mengisi lebar main */
+.welcome-container, 
+.bridge-container, 
+.placeholder-page, 
+.access-denied {
+  width: 100%;
+}
+
+/* =========================================
+   HALAMAN: HOME / WELCOME
+   ========================================= */
+.welcome-container {
+  text-align: center;
+  animation: fadeIn 0.5s ease-in;
+}
+
+.welcome-content {
+  text-align: left;
+  background: var(--card-bg);
+  padding: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.welcome-container h2 {
+  color: var(--primary);
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  font-size: 1.5rem;
+}
+
+/* =========================================
+   HALAMAN: BRIDGE
+   ========================================= */
+.bridge-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Dua kolom setara */
+  gap: 25px;
+}
+
+/* Grid Card Style */
+.terminal-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 20px;
+  transition: all 0.3s ease;
+}
+
+/* Efek Glow Border saat aktif */
+.terminal-card.active-sepolia {
+  border-color: var(--primary);
+  box-shadow: 0 0 15px rgba(0, 255, 65, 0.05);
+}
+
+.terminal-card.active-hoodi {
+  border-color: var(--secondary);
+  box-shadow: 0 0 15px rgba(243, 156, 18, 0.05);
+}
+
+/* Card Header */
+.card-header h3 {
+  margin-top: 0;
+  border-bottom: 1px dashed var(--border-color);
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+}
+
+.text-green { color: var(--primary); }
+.text-orange { color: var(--secondary); }
+
+/* Balance Info */
+.balance-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+
+/* =========================================
+   FORM ELEMENTS (INPUT & BUTTON)
+   ========================================= */
+.mt-20 { margin-top: 20px; }
+
+input[type="text"] {
+  width: 100%;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  margin-bottom: 12px;
+  border-radius: 4px;
+  outline: none;
+}
+
+input[type="text"]:focus {
+  border-color: var(--primary);
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-weight: bold;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 4px;
+}
+
+/* Connect Button */
+.btn-connect {
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  width: auto; /* Tidak full width */
+  padding: 8px 16px;
+}
+.btn-connect:hover {
+  background: var(--primary);
+  color: var(--text-inverse);
+}
+
+/* Lock Button (Hijau) */
+.btn-lock {
+  background: var(--primary);
+  border: none;
+  color: var(--text-inverse);
+}
+.btn-lock:hover:not(:disabled) {
+  background: #00cc33;
+  box-shadow: 0 0 15px var(--primary);
+}
+
+/* Burn Button (Oranye) */
+.btn-burn {
+  background: var(--secondary);
+  border: none;
+  color: var(--text-inverse);
+}
+.btn-burn:hover:not(:disabled) {
+  background: #d35400;
+  box-shadow: 0 0 15px var(--secondary);
+}
+
+/* Transfer Button (Biru) */
+.btn-transfer {
+  background: var(--blue);
+  border: none;
+  color: var(--text-inverse);
+}
+
+/* Disabled State */
+button:disabled {
+  background: #21262d;
+  color: #484f58;
+  cursor: not-allowed;
+  border: 1px solid #30363d;
+  box-shadow: none;
+}
+
+.inactive {
+  opacity: 0.5;
+  filter: grayscale(0.8);
+  pointer-events: none;
+}
+
+/* =========================================
+   UTILITIES & STATUS
+   ========================================= */
+.status-log {
+  background: #000;
+  border-left: 4px solid var(--primary);
+  color: var(--text-muted);
+  padding: 15px;
+  margin-bottom: 20px;
+  font-size: 0.85rem;
+  border-radius: 0 4px 4px 0;
+}
+
+.placeholder-page, 
+.access-denied {
+  text-align: center;
+  margin-top: 40px;
+  padding: 40px;
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  color: var(--text-muted);
+}
+
+/* =========================================
+   DEX SPECIFIC STYLING
+   ========================================= */
+
+/* Wrapper utama DEX */
+.dex-wrapper {
+  width: 100%;
+  max-width: 900px; /* Lebar penuh agar muat 2 kartu */
+  margin-top: 40px;    /* Jarak atas */
+  margin-bottom: 60px; /* Jarak bawah */
+  padding: 20px 0;     /* Extra ruang dalam */
+}
+
+/* Status Bar Pool (Header Kecil) */
+.pool-stats-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(22, 27, 34, 0.8);
+  border: 1px solid var(--border-color);
+  padding: 10px 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+  margin-bottom: 35px; /* Tambah jarak */
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+
+.pool-stats-bar span b {
+  color: var(--text-main);
+  margin-left: 5px;
+}
+
+/* Navigasi Tab (Swap / Liquidity) */
+.dex-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+  margin-bottom: 40px; /* Lebih lega */
+}
+
+.dex-tabs button {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 10px 30px;
+  border-radius: 20px; /* Pill shape */
+  font-size: 1rem;
+  width: auto; /* Supaya tidak full width */
+  transition: all 0.3s ease;
+}
+
+.dex-tabs button.active {
+  background: var(--card-bg);
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
+}
+
+.dex-tabs button:hover:not(.active) {
+  border-color: var(--text-muted);
+  color: var(--text-main);
+}
+
+.dex-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 25px; /* naik dari 20 ke 25 biar lega */
+}
+
+.liquidity-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 25px;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; /* FIX */
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.liquidity-card button {
+  margin-top: auto; /* biar tombol turun tapi tidak merusak input */
+}
+
+
+/* --- INPUT GROUP STYLING --- */
+
+.input-group {
+  position: relative;     /* WAJIB */
+    display: block;         /* Supaya tidak kena flex/grid parent */
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.input-group label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: bold;
+}
+
+.input-group label small {
+  float: right;
+  color: var(--secondary); /* Warna oranye untuk teks "Estimasi" */
+  text-transform: none;
+  font-size: 0.75rem;
+}
+
+/* Input Normal (Bisa diketik) */
+.input-group input:not([readOnly]) {
+  width: 100%;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  margin-bottom: 12px;
+  border-radius: 4px;
+  outline: none;
+}
+
+/* Input Read-Only (Hasil Estimasi) */
+.input-group input[readOnly] {
+  background: #0f1115; /* Lebih gelap */
+  border: 1px dashed #333; /* Garis putus-putus */
+  color: var(--text-muted); /* Warna teks redup */
+  cursor: not-allowed; /* Kursor tanda larang */
+  font-style: italic;
+}
+
+.input-group input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 8px rgba(0, 255, 65, 0.1);
+}
+
+/* Tombol di dalam kartu DEX */
+.btn-transfer {
+  margin-top: 10px;
+  font-size: 1rem;
+  letter-spacing: 1px;
+}
+
+/* =========================================
+   RESPONSIVE MOBILE
+   ========================================= */
+@media (max-width: 768px) {
+  .bridge-grid {
+    grid-template-columns: 1fr; /* Stack ke bawah di HP */
+  }
+  
+  .nav-container {
+    border-radius: 4px;
+  }
+  
+  .nav-item {
+    padding: 10px;
+    font-size: 0.8rem;
+  }
+  
+  .app-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .pool-stats-bar {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
