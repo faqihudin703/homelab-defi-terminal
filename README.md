@@ -1,64 +1,82 @@
-# Homelab DeFi Terminal
+# Homelab DeFi & NFT Terminal
 
-**Experimental Cross-Chain DeFi Platform (Sepolia ↔ Hoodi ↔ Base Sepolia)**
+**Experimental Omni-Chain Ecosystem (Sepolia ↔ Hoodi ↔ Base ↔ Arbitrum ↔ Optimism)**
 
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Relayer](https://img.shields.io/badge/Infrastructure-Node.js-green)
+![Frontend](https://img.shields.io/badge/Frontend-React_%2B_Vite-orange)
+![Solidity](https://img.shields.io/badge/Smart_Contract-Solidity_0.8-lightgrey)
+
 ![Sepolia](https://img.shields.io/badge/L1-Sepolia-blue)
 ![Hoodi](https://img.shields.io/badge/L1-Hoodi-00B7FF)
-![Base](https://img.shields.io/badge/L2-Base_Sepolia-1e90ff)
-![Relayer](https://img.shields.io/badge/Relayer-Node.js-green)
-![Frontend](https://img.shields.io/badge/Frontend-React_%2B_Vite-orange)
+![Base](https://img.shields.io/badge/L2-Base_Sepolia-0052FF)
+![Arbitrum](https://img.shields.io/badge/L2-Arbitrum_Sepolia-2D3748)
+![Optimism](https://img.shields.io/badge/L2-Optimism_Sepolia-FF0420)
 
-Platform DeFi *cross-chain* eksperimental yang menghubungkan **Sepolia Testnet**, **Hoodi Testnet**, dan **Base Sepolia Testnet**.
-Termasuk infrastruktur lengkap: **Smart Contract**, **Bridge Relayer**, dan **Frontend DApp**.
+Platform Web3 eksperimental yang mengintegrasikan **DeFi (AMM/StableSwap)** dan **Cross-Chain NFT** di berbagai jaringan EVM layer-1 dan layer-2.
+Project ini mendemonstrasikan infrastruktur full-stack: **Smart Contract Upgradeable**, **Off-chain Relayer**, **REST API**, dan **Frontend DApp**.
 
 ---
 
 ## 🏗️ Arsitektur Monorepo
 
-| Komponen            | Path               | Deskripsi                                                                                                      |
-| ------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------- |
-| **Smart Contracts** | `/Smart Contracts` | Kontrak Solidity (Vault V3, SwapToken, StableSwap) berbasis Hardhat & OpenZeppelin Upgradeable.                |
-| **Bridge Relayer**  | `/Bridge Relayer`  | Layanan Node.js off-chain untuk *event listener*, routing multi-chain, dan penandatanganan transaksi otomatis. |
-| **Front-end DApp**   | `/Front-end`        | Antarmuka React + Vite dengan integrasi MetaMask/WalletConnect dan dukungan Mobile.                            |
+| Komponen            | Path               | Deskripsi                                                                                                                                      |
+| ------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Smart Contracts** | `/smart-contracts` | Kumpulan kontrak Solidity: Vault V3, AMM Pair, StableSwap, dan **ERC-721/1155 NFT Bridge**. Berbasis Hardhat & OpenZeppelin Upgradeable.       |
+| **Bridge Relayer** | `/bridge-relayer`  | Layanan Node.js off-chain yang memonitor event blockchain, menangani routing aset (Token & NFT), dan menandatangani transaksi secara otomatis. |
+| **Front-end DApp** | `/frontend`        | Antarmuka React + Vite dengan integrasi WalletConnect, manajemen state real-time, dan dashboard visualisasi transaksi.                         |
+| **NFT API Service** | `/api-service`     | Backend (Express.js) untuk menangani *dynamic metadata* NFT, rate-limiting update properti, dan validasi off-chain.                            |
 
 ---
 
 ## 🚀 Fitur Utama
 
-### 1️⃣ Cross-Chain Bridge (Hub-and-Spoke)
+### 1️⃣ Omni-Chain Asset Bridge
+* **Token Bridge:** Transfer aset ERC-20 antar 5 chain (Sepolia, Hoodi, Base, Arbitrum, Optimism) menggunakan mekanisme *Lock-and-Mint* atau *Liquidity Pool*.
+* **NFT Bridge:** Memindahkan NFT antar jaringan dengan menjaga metadata tetap sinkron.
 
-* Unified Liquidity (Vault → wMRT)
-* Lock & Mint
-* Anti-Replay dengan transaction ID deterministik
+### 2️⃣ Advanced NFT Ecosystem (NEW ✨)
+* **Mint & Burn:** Pembuatan NFT dengan properti unik.
+* **Dynamic Metadata:** User dapat mengedit atribut NFT (misal: Level Up, Rename) yang diproses via API Service untuk keamanan, kemudian di-update on-chain.
+* **Cross-Chain State:** Metadata NFT tetap persisten meskipun dipindahkan antar jaringan.
 
-### 2️⃣ DeFi Protocols
+### 3️⃣ DeFi Protocols
+* **Dual-Engine DEX:**
+  * **Standard AMM:** Menggunakan formula $x \times y = k$ untuk aset volatile.
+  * **StableSwap:** Algoritma khusus untuk aset *pegged* (USDT/USDC) dengan *low slippage*.
+* **Liquidity Farming:** Staking LP token untuk mendapatkan reward.
 
-* **AMM DEX** (x*y = k)
-* **StableSwap** (low slippage untuk stablecoin)
-
-### 3️⃣ Security & UX
-
-* Role-Based Access Control
-* Auto-Reconnect Wallet
+### 4️⃣ Security & Infrastructure
+* **Role-Based Access Control (RBAC):** Manajemen hak akses admin dan relayer.
+* **API Rate Limiting:** Mencegah spamming pada endpoint metadata NFT.
+* **Auto-Retry Mechanism:** Relayer otomatis mencoba ulang transaksi yang gagal karena *network congestion*.
 
 ---
 
 ## 🛠️ Cara Menjalankan
 
-### **1. Bridge Relayer**
+### **1. Konfigurasi Environment**
+Salin file `.env.example` menjadi `.env` di setiap folder (`bridge-relayer`, `frontend`, `api-service`) dan isi Private Key serta RPC URL.
 
-Pastikan file `.env` sudah diisi (cek `.env.example`):
+### **2. Bridge Relayer (Infrastruktur)**
 
 ```bash
-cd bridge-service
+cd bridge-relayer
 npm install
 node index.js
-# atau:
-# docker-compose up -d
+# atau menggunakan PM2:
+# pm2 start index.js --name "bridge-relayer"
 ```
 
-### **2. Frontend**
+### **3. NFT API Service (Backend)**
+
+```bash
+cd api-service
+npm install
+node server.js
+```
+
+### **4. Frontend (User Interface)**
 
 ```bash
 cd frontend
@@ -72,18 +90,39 @@ npm run dev
 
 ```
 homelab-defi-terminal/
-├── smart-contracts/     # Upgradeable Contracts
-├── bridge-service/      # Off-chain Relayer
-└── frontend/            # React + Vite DApp
+├── smart-contracts/   # Solidity (Hardhat)
+├── bridge-relayer/    # Node.js Event Listener
+├── api-service/       # NFT Metadata API
+└── frontend/          # React + Vite
 ```
 
 ---
 
-## 🧭 Roadmap
+## 🧭 Development Roadmap & Status
 
-* [ ] UI DEX + Bridge final
-* [ ] Dashboard relayer
-* [ ] Support chain tambahan
+Proyek ini telah mencapai milestone pengembangan utama dengan fitur-fitur berikut yang sudah beroperasi penuh:
+
+### Phase 1: Core Infrastructure ✅
+- [x] **Smart Contract Architecture:** Implementasi pola Upgradeable (Proxy) untuk Vault dan Token.
+- [x] **Bridge Mechanism:** Algoritma *Lock-and-Mint* untuk transfer aset lintas chain.
+- [x] **Relayer Service:** Node.js service untuk monitoring event dan eksekusi transaksi otomatis.
+
+### Phase 2: Multi-Chain Integration ✅
+- [x] **L1 Support:** Sepolia & Hoodi Testnet.
+- [x] **L2 Expansion:** Integrasi penuh ke **Base Sepolia**, **Arbitrum Sepolia**, dan **Optimism Sepolia**.
+- [x] **Idempotency:** Perlindungan terhadap *double-spending* dan *replay attacks* pada Relayer.
+
+### Phase 3: DeFi & NFT Ecosystem ✅
+- [x] **Dual-Engine DEX:**
+    - Standard AMM ($x \times y = k$) untuk aset volatil.
+    - StableSwap Invariant untuk aset *pegged* (USDT/USDC).
+- [x] **Advanced NFT System:**
+    - Cross-Chain NFT Bridging.
+    - **API Service:** Backend untuk menangani *Dynamic Metadata* (edit properti NFT off-chain & sync on-chain).
+
+### Phase 4: User Experience ✅
+- [x] **Frontend Dashboard:** UI responsif menggunakan React + Vite.
+- [x] **Wallet Integration:** Dukungan Multi-RPC dan deteksi jaringan otomatis.
 
 ---
 
