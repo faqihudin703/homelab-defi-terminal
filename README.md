@@ -1,6 +1,6 @@
 # Homelab DeFi & NFT Terminal
 
-**Experimental Omni-Chain Ecosystem (Sepolia ↔ Hoodi ↔ Base ↔ Arbitrum ↔ Optimism)**
+**Experimental Omni-Chain Ecosystem (Sepolia ↔ Hoodi ↔ Base Sepolia ↔ Arbitrum Sepolia ↔ Optimism Sepolia)**
 
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Relayer](https://img.shields.io/badge/Infrastructure-Node.js-green)
@@ -9,9 +9,9 @@
 
 ![Sepolia](https://img.shields.io/badge/L1-Sepolia-blue)
 ![Hoodi](https://img.shields.io/badge/L1-Hoodi-00B7FF)
-![Base](https://img.shields.io/badge/L2-Base_Sepolia-0052FF)
-![Arbitrum](https://img.shields.io/badge/L2-Arbitrum_Sepolia-2D3748)
-![Optimism](https://img.shields.io/badge/L2-Optimism_Sepolia-FF0420)
+![Base Sepolia](https://img.shields.io/badge/L2-Base_Sepolia-0052FF)
+![Arbitrum Sepolia](https://img.shields.io/badge/L2-Arbitrum_Sepolia-2D3748)
+![Optimism Sepolia](https://img.shields.io/badge/L2-Optimism_Sepolia-FF0420)
 
 Platform Web3 eksperimental yang mengintegrasikan **DeFi (AMM/StableSwap)** dan **Cross-Chain NFT** di berbagai jaringan EVM layer-1 dan layer-2.
 Project ini mendemonstrasikan infrastruktur full-stack: **Smart Contract Upgradeable**, **Off-chain Relayer**, **REST API**, dan **Frontend DApp**.
@@ -25,19 +25,19 @@ Project ini mendemonstrasikan infrastruktur full-stack: **Smart Contract Upgrade
 | **Smart Contracts** | `/smart-contracts` | Kumpulan kontrak Solidity: Vault V3, AMM Pair, StableSwap, dan **ERC-721/1155 NFT Bridge**. Berbasis Hardhat & OpenZeppelin Upgradeable.       |
 | **Bridge Relayer** | `/bridge-relayer`  | Layanan Node.js off-chain yang memonitor event blockchain, menangani routing aset (Token & NFT), dan menandatangani transaksi secara otomatis. |
 | **Front-end DApp** | `/frontend`        | Antarmuka React + Vite dengan integrasi WalletConnect, manajemen state real-time, dan dashboard visualisasi transaksi.                         |
-| **NFT API Service** | `/api-service`     | Backend (Express.js) untuk menangani *dynamic metadata* NFT, rate-limiting update properti, dan validasi off-chain.                            |
+| **NFT API Service** | `/api-service`     | Backend (Express.js) untuk menangani rate-limiting update properti.                            |
 
 ---
 
 ## 🚀 Fitur Utama
 
 ### 1️⃣ Omni-Chain Asset Bridge
-* **Token Bridge:** Transfer aset ERC-20 antar 5 chain (Sepolia, Hoodi, Base, Arbitrum, Optimism) menggunakan mekanisme *Lock-and-Mint* atau *Liquidity Pool*.
+* **Token Bridge:** Transfer aset ERC-20 antar 5 chain (Sepolia, Hoodi, Base Sepolia, Arbitrum Sepolia, Optimism Sepolia) menggunakan mekanisme *Lock-and-Mint*.
 * **NFT Bridge:** Memindahkan NFT antar jaringan dengan menjaga metadata tetap sinkron.
 
 ### 2️⃣ Advanced NFT Ecosystem (NEW ✨)
 * **Mint & Burn:** Pembuatan NFT dengan properti unik.
-* **Dynamic Metadata:** User dapat mengedit atribut NFT (misal: Level Up, Rename) yang diproses via API Service untuk keamanan, kemudian di-update on-chain.
+* **Dynamic Metadata:** User dapat mengedit atribut NFT (misal: change image, Rename), kemudian di-update on-chain.
 * **Cross-Chain State:** Metadata NFT tetap persisten meskipun dipindahkan antar jaringan.
 
 ### 3️⃣ DeFi Protocols
@@ -74,6 +74,8 @@ node index.js
 cd api-service
 npm install
 node server.js
+# atau menggunakan PM2:
+# pm2 start server.js --name "api-service"
 ```
 
 ### **4. Frontend (User Interface)**
@@ -118,7 +120,7 @@ Proyek ini telah mencapai milestone pengembangan utama dengan fitur-fitur beriku
     - StableSwap Invariant untuk aset *pegged* (USDT/USDC).
 - [x] **Advanced NFT System:**
     - Cross-Chain NFT Bridging.
-    - **API Service:** Backend untuk menangani *Dynamic Metadata* (edit properti NFT off-chain & sync on-chain).
+    - **API Service:** Backend untuk menangani Rate Limiting update NFT.
 
 ### Phase 4: User Experience ✅
 - [x] **Frontend Dashboard:** UI responsif menggunakan React + Vite.
