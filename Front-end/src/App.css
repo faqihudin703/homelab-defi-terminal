@@ -10,7 +10,9 @@
   
   --primary: #00ff41;        /* HIJAU NEON (Matrix/Sepolia) */
   --secondary: #f39c12;      /* ORANYE (Hoodi/Warning) */
-  --blue: #00bcd4;           /* BIRU (Base/Transfer) */
+  --blue: #009fe3;           /* BIRU (Base/Transfer) */
+  --red: #ff385d;
+  --indigo: #2d76ff;
   --danger: #ff3333;         /* MERAH (Error) */
   
   --text-main: #c9d1d9;      /* Putih Tulang (Teks Utama) */
@@ -223,6 +225,22 @@ main {
   box-shadow: 0 0 15px rgba(243, 156, 18, 0.05);
 }
 
+.terminal-card.active-base {
+  border-color: var(--blue);
+  box-shadow: 0 0 15px rgba(0, 159, 227, 0.10);
+}
+
+.terminal-card.active-optimism {
+  border-color: var(--red);
+  box-shadow: 0 0 15px rgba(255, 4, 32, 0.1); 
+}
+
+.terminal-card.active-arbitrum {
+  border-color: var(--indigo);
+  box-shadow: 0 0 15px rgba(40, 160, 240, 0.1); 
+}
+
+
 /* Card Header */
 .card-header h3 {
   margin-top: 0;
@@ -234,6 +252,9 @@ main {
 
 .text-green { color: var(--primary); }
 .text-orange { color: var(--secondary); }
+.text-blue { color: var(--blue); }
+.text-optimism { color: var(--red); }
+.text-arbitrum { color: var(--indigo); }
 
 /* Balance Info */
 .balance-row {
@@ -291,35 +312,6 @@ button {
   color: var(--text-inverse);
 }
 
-/* Lock Button (Hijau) */
-.btn-lock {
-  background: var(--primary);
-  border: none;
-  color: var(--text-inverse);
-}
-.btn-lock:hover:not(:disabled) {
-  background: #00cc33;
-  box-shadow: 0 0 15px var(--primary);
-}
-
-/* Burn Button (Oranye) */
-.btn-burn {
-  background: var(--secondary);
-  border: none;
-  color: var(--text-inverse);
-}
-.btn-burn:hover:not(:disabled) {
-  background: #d35400;
-  box-shadow: 0 0 15px var(--secondary);
-}
-
-/* Transfer Button (Biru) */
-.btn-transfer {
-  background: var(--blue);
-  border: none;
-  color: var(--text-inverse);
-}
-
 /* Disabled State */
 button:disabled {
   background: #21262d;
@@ -334,6 +326,37 @@ button:disabled {
   filter: grayscale(0.8);
   pointer-events: none;
 }
+
+/* --- TERMINAL DROPDOWN --- */
+select.terminal-select {
+  width: 100%;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  padding: 12px 15px;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  border-radius: 6px;
+  outline: none;
+  appearance: none; /* Hilangkan panah bawaan browser */
+  cursor: pointer;
+  
+  /* Custom Arrow (ASCII style) */
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%238b949e%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 15px top 50%;
+  background-size: 12px auto;
+}
+
+select.terminal-select:focus {
+  border-color: var(--primary);
+}
+
+/* Pilihan warna border saat dropdown aktif */
+.select-hoodi:focus { border-color: var(--secondary) !important; }
+.select-base:focus { border-color: var(--blue) !important; }
+.select-optimism:focus { border-color: var(--red) !important; }
+.select-arbitrum:focus { border-color: var(--indigo) !important; }
 
 /* =========================================
    UTILITIES & STATUS
@@ -366,7 +389,6 @@ button:disabled {
 .dex-wrapper {
   width: 100%;
   max-width: 900px; /* Lebar penuh agar muat 2 kartu */
-  margin-top: 40px;    /* Jarak atas */
   margin-bottom: 60px; /* Jarak bawah */
   padding: 20px 0;     /* Extra ruang dalam */
 }
@@ -507,6 +529,145 @@ button:disabled {
   margin-top: 10px;
   font-size: 1rem;
   letter-spacing: 1px;
+}
+
+/* =========================================
+   NFT TERMINAL STYLES (FINAL)
+   ========================================= */
+
+/* Grid Container untuk NFT */
+.nft-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 25px;
+  width: 100%;
+}
+
+/* Kartu NFT Individual */
+.nft-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.nft-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--primary);
+  box-shadow: 0 10px 20px rgba(0, 255, 65, 0.1);
+}
+
+/* Gambar NFT */
+.nft-image {
+  width: 100%;
+  height: 250px;
+  object-fit: cover;
+  background: #000;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Info Metadata */
+.nft-info {
+  padding: 20px;
+  flex-grow: 1;
+}
+
+.nft-info h4 {
+  margin: 0 0 5px 0;
+  color: var(--text-main);
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.nft-info p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Bagian Aksi (Tombol di bawah kartu) */
+.nft-actions {
+  padding: 15px;
+  border-top: 1px solid var(--border-color);
+  background: rgba(0,0,0,0.2);
+  display: flex;
+  gap: 10px;
+}
+
+/* Upload Area (Dotted Box) */
+.upload-area {
+  border: 2px dashed var(--border-color);
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.02);
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.upload-area:hover {
+  border-color: var(--primary);
+  background: rgba(0, 255, 65, 0.05);
+}
+
+.upload-icon {
+  font-size: 3rem;
+  margin-bottom: 15px;
+  display: block;
+}
+
+.file-input-hidden {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Preview saat Upload */
+.nft-preview-container {
+  text-align: center;
+  margin-bottom: 25px;
+  background: #000;
+  padding: 15px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.nft-preview-img {
+  max-width: 100%;
+  max-height: 350px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+/* Badge Status (di pojok kartu) */
+.nft-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+  margin-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Panel Admin (Withdraw Profit) */
+.admin-panel {
+  border: 1px solid var(--secondary);
+  background: rgba(243, 156, 18, 0.05);
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 30px;
+  text-align: center;
 }
 
 /* =========================================

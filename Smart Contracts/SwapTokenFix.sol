@@ -18,7 +18,7 @@ import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
  *      pausable, admin rescue functions, slippage protection). Still treat this as
  *      example — audit before production.
  */
-contract SwapToken_old is
+contract SwapTokenV3 is
     Initializable,
     ERC20Upgradeable,
     AccessControlUpgradeable,
@@ -76,6 +76,18 @@ contract SwapToken_old is
         // ADMIN_ROLE: operational admin (setFee, pause, rescue)
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
+    }
+    
+    function name() public view virtual override returns (string memory) {
+        return "Wrapped MRTSwap LP Token"; 
+    }
+    
+    function symbol() public view virtual override returns (string memory) {
+        return "WMSLP";
+    }
+    
+    function version() public pure returns (string memory) {
+        return "v3-standalone";
     }
 
     // -------- VIEWS --------

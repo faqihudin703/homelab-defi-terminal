@@ -18,7 +18,7 @@ import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
  *      pausable, admin rescue functions, slippage protection). Still treat this as
  *      example — audit before production.
  */
-contract SwapToken_old is
+contract SwapToken is
     Initializable,
     ERC20Upgradeable,
     AccessControlUpgradeable,
@@ -62,7 +62,7 @@ contract SwapToken_old is
         // sanity: token must be a contract
         require(_token.isContract(), "token not contract");
 
-        __ERC20_init("MRTSwap LP Token", "MSLP");
+        __ERC20_init("WMRTSwap LP Token", "WMSLP");
         __AccessControl_init();
         __ReentrancyGuard_init();
         __Pausable_init();

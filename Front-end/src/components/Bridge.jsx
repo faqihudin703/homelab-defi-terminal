@@ -3,231 +3,219 @@ import { ethers } from 'ethers';
 import { CONFIG } from '../config';
 import { useWeb3 } from '../context/Web3Context';
 
-// ABI Imports
 import TokenVaultABI from '../abis/TokenVault.json';
 import wMRTABI from '../abis/wMRT.json';
 import MRTABI from '../abis/MRT.json';
 
 export default function Bridge() {
-  const { account, chainId } = useWeb3();
+  const { account, chainId, provider } = useWeb3();
+  const chainIdNum = Number(chainId);
 
-  // State Data
+  // ================= STATE =================
   const [balances, setBalances] = useState({ 
-    sepoliaEth: "0", sepoliaMrt: "0", 
-    hoodiEth: "0", hoodiWmrt: "0",
-    baseEth: "0", baseWmrt: "0" 
+    sepolia: { eth: "0", token: "0" },
+    hoodi:   { eth: "0", token: "0" },
+    base:    { eth: "0", token: "0" },
+    optimism:{ eth: "0", token: "0" },
+    arbitrum:{ eth: "0", token: "0" }
   });
-  
-  const [inputs, setInputs] = useState({ 
-    lockAmount: "", burnAmount: "", 
-    transferRecipient: "", transferAmount: "", 
-    mintAmount: "", mintRecipient: "" 
+
+  const [inputs, setInputs] = useState({
+    lockAmount: "",
+    burnAmount: "",
+    transferRecipient: "",
+    transferAmount: "",
+    mintRecipient: "",
+    mintAmount: ""
   });
-  
+
   const [status, setStatus] = useState("");
   const [isOwner, setIsOwner] = useState(false);
+  const [destChainKey, setDestChainKey] = useState('HOODI');
 
-  // --- STATE BARU: DESTINATION CHAIN ---
-  // Default ke HOODI
-  const [destChain, setDestChain] = useState('HOODI'); 
-
-  // Helper: Mendapatkan Fresh Signer
+  // ================= SAFE SIGNER =================
   const getFreshSigner = async () => {
-    if (!window.ethereum) {
-      throw new Error("MetaMask tidak ditemukan");
+    if (!provider) {
+      throw new Error("Wallet belum terhubung");
     }
-        
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-        
-    return signer; // selalu fresh & stabil di mobile
+    return await provider.getSigner();
   };
-  
-  // --- UPDATE BALANCES (MULTI-CHAIN) ---
+
+  // ================= BALANCE UPDATE =================
   const updateBalances = async () => {
     if (!account) return;
+
     try {
-      // Provider Read-Only
-      const pSepolia = new ethers.JsonRpcProvider(CONFIG.NETWORKS.SEPOLIA.RPC_URL);
-      const pHoodi = new ethers.JsonRpcProvider(CONFIG.NETWORKS.HOODI.RPC_URL);
-      const pBase = new ethers.JsonRpcProvider(CONFIG.NETWORKS.BASE.RPC_URL);
+      const fetchBal = async (rpc, tokenAddr, abi) => {
+        const p = new ethers.JsonRpcProvider(rpc);
+        const eth = Number(ethers.formatEther(await p.getBalance(account))).toFixed(4);
+        const token = new ethers.Contract(tokenAddr, abi, p);
+        const bal = ethers.formatEther(await token.balanceOf(account));
+        return { eth, token: bal };
+      };
 
-      // 1. SEPOLIA
-      const ethSep = await pSepolia.getBalance(account);
-      const mrtSep = await new ethers.Contract(CONFIG.CONTRACTS.SEPOLIA.TOKEN, MRTABI, pSepolia).balanceOf(account);
+      const [sep, hoo, bas, op, arb] = await Promise.all([
+        fetchBal(CONFIG.NETWORKS.SEPOLIA.RPC_URL, CONFIG.CONTRACTS.SEPOLIA.TOKEN, MRTABI),
+        fetchBal(CONFIG.NETWORKS.HOODI.RPC_URL, CONFIG.CONTRACTS.HOODI.WMRT, wMRTABI),
+        fetchBal(CONFIG.NETWORKS.BASE.RPC_URL, CONFIG.CONTRACTS.BASE.WMRT, wMRTABI),
+        fetchBal(CONFIG.NETWORKS.OPTIMISM.RPC_URL, CONFIG.CONTRACTS.OPTIMISM.WMRT, wMRTABI),
+        fetchBal(CONFIG.NETWORKS.ARBITRUM.RPC_URL, CONFIG.CONTRACTS.ARBITRUM.WMRT, wMRTABI),
+      ]);
 
-      // 2. HOODI
-      const ethHoodi = await pHoodi.getBalance(account);
-      const wmrtHoodi = await new ethers.Contract(CONFIG.CONTRACTS.HOODI.WMRT, wMRTABI, pHoodi).balanceOf(account);
-
-      // 3. BASE
-      const ethBase = await pBase.getBalance(account);
-      const wmrtBase = await new ethers.Contract(CONFIG.CONTRACTS.BASE.WMRT, wMRTABI, pBase).balanceOf(account);
-
-      setBalances({
-        sepoliaEth: parseFloat(ethers.formatEther(ethSep)).toFixed(4),
-        sepoliaMrt: ethers.formatEther(mrtSep),
-        hoodiEth: parseFloat(ethers.formatEther(ethHoodi)).toFixed(4),
-        hoodiWmrt: ethers.formatEther(wmrtHoodi),
-        baseEth: parseFloat(ethers.formatEther(ethBase)).toFixed(4),
-        baseWmrt: ethers.formatEther(wmrtBase),
-      });
-    } catch (err) { console.error("Balance update failed", err); }
+      setBalances({ sepolia: sep, hoodi: hoo, base: bas, optimism: op, arbitrum: arb });
+    } catch (e) {
+      console.error("Balance update error:", e);
+    }
   };
-  
+
+  // ================= OWNER CHECK =================
   const checkOwner = async () => {
     if (!account) return;
 
     try {
-        const sepoliaProvider = new ethers.JsonRpcProvider(CONFIG.NETWORKS.SEPOLIA.RPC_URL);
-        const tokenContract = new ethers.Contract(CONFIG.CONTRACTS.SEPOLIA.TOKEN, MRTABI, sepoliaProvider);
-
-        const bridgeRoleHash = await tokenContract.BRIDGE_ROLE();
-        const isBridge = await tokenContract.hasRole(bridgeRoleHash, account);
-
-        console.log("Has BRIDGE_ROLE?", isBridge);
-        setIsOwner(isBridge);
-
-    } catch (e) {
-        console.error("Gagal cek BRIDGE_ROLE:", e);
-        setIsOwner(false);
+      const p = new ethers.JsonRpcProvider(CONFIG.NETWORKS.SEPOLIA.RPC_URL);
+      const token = new ethers.Contract(CONFIG.CONTRACTS.SEPOLIA.TOKEN, MRTABI, p);
+      const role = await token.BRIDGE_ROLE();
+      setIsOwner(await token.hasRole(role, account));
+    } catch {
+      setIsOwner(false);
     }
   };
 
   useEffect(() => {
     updateBalances();
     checkOwner();
-    const interval = setInterval(updateBalances, 10000);
-    return () => clearInterval(interval);
-  }, [account, chainId]);
+    const i = setInterval(updateBalances, 15000);
+    return () => clearInterval(i);
+  }, [account, chainIdNum]);
 
+  // ================= HELPERS =================
+  const getCurrentChainKey = () => {
+    if (chainIdNum === Number(CONFIG.NETWORKS.SEPOLIA.CHAIN_ID)) return 'SEPOLIA';
+    if (chainIdNum === Number(CONFIG.NETWORKS.HOODI.CHAIN_ID)) return 'HOODI';
+    if (chainIdNum === Number(CONFIG.NETWORKS.BASE.CHAIN_ID)) return 'BASE';
+    if (chainIdNum === Number(CONFIG.NETWORKS.OPTIMISM.CHAIN_ID)) return 'OPTIMISM';
+    if (chainIdNum === Number(CONFIG.NETWORKS.ARBITRUM.CHAIN_ID)) return 'ARBITRUM';
+    return null;
+  };
 
-  // ============================================================
-  // HANDLER 1: LOCK (SEPOLIA -> HOODI / BASE)
-  // ============================================================
+  // ================= LOCK =================
   const handleLock = async () => {
-    if (chainId !== CONFIG.NETWORKS.SEPOLIA.CHAIN_ID) return alert("Ganti network ke Sepolia!");
-    
-    setStatus(`⏳ Memproses Lock ke ${destChain}...`);
+    if (chainIdNum !== Number(CONFIG.NETWORKS.SEPOLIA.CHAIN_ID))
+      return alert("Ganti network ke Sepolia!");
+
     try {
-      const freshSigner = await getFreshSigner();
-      const tokenContract = new ethers.Contract(CONFIG.CONTRACTS.SEPOLIA.TOKEN, MRTABI, freshSigner);
-      const vaultContract = new ethers.Contract(CONFIG.CONTRACTS.SEPOLIA.VAULT, TokenVaultABI, freshSigner);
-      
-      const amountWei = ethers.parseEther(inputs.lockAmount);
-      
-      // 1. APPROVE
-      setStatus("1/2: Menunggu Approval...");
-      const txApp = await tokenContract.approve(CONFIG.CONTRACTS.SEPOLIA.VAULT, amountWei);
-      await txApp.wait();
-      
-      // 2. TENTUKAN PARAMETER TUJUAN (V2)
-      let targetChainId, targetTokenAddr;
-      
-      if (destChain === 'HOODI') {
-          targetChainId = CONFIG.NETWORKS.HOODI.CHAIN_ID;
-          targetTokenAddr = CONFIG.CONTRACTS.HOODI.WMRT;
-      } else {
-          targetChainId = CONFIG.NETWORKS.BASE.CHAIN_ID;
-          targetTokenAddr = CONFIG.CONTRACTS.BASE.WMRT;
-      }
+      setStatus(`⏳ Locking to ${destChainKey}...`);
+      const signer = await getFreshSigner();
 
-      // 3. LOCK V2 (lockTo)
-      setStatus(`2/2: Mengunci Token (Target: ${destChain})...`);
-      
-      // Signature: lockTo(recipient, amount, destChainId, destTokenAddr)
-      const txLock = await vaultContract.lockTo(
-          account,          // Penerima (diri sendiri)
-          amountWei, 
-          targetChainId,    // Chain ID Tujuan
-          targetTokenAddr   // Alamat wMRT di Tujuan (untuk Relayer)
+      const token = new ethers.Contract(CONFIG.CONTRACTS.SEPOLIA.TOKEN, MRTABI, signer);
+      const vault = new ethers.Contract(CONFIG.CONTRACTS.SEPOLIA.VAULT, TokenVaultABI, signer);
+      const amt = ethers.parseEther(inputs.lockAmount);
+
+      await (await token.approve(CONFIG.CONTRACTS.SEPOLIA.VAULT, amt)).wait();
+
+      const target = CONFIG.NETWORKS[destChainKey];
+      const tx = await vault.lockTo(
+        account,
+        amt,
+        Number(target.CHAIN_ID),
+        CONFIG.CONTRACTS[destChainKey].WMRT
       );
-      await txLock.wait();
 
-      setStatus(`✅ Lock Berhasil! Relayer akan kirim ke ${destChain}.`);
+      await tx.wait();
+      setInputs(p => ({ ...p, lockAmount: "" }));
+      setStatus("✅ Lock berhasil!");
       updateBalances();
-      setInputs(prev => ({...prev, lockAmount: ""}));
-    } catch (err) {
-      setStatus("❌ Gagal: " + (err.reason || err.message));
+    } catch (e) {
+      setStatus("❌ " + e.message);
     }
   };
 
-
-  // ============================================================
-  // HANDLER 2: BURN (HOODI/BASE -> SEPOLIA)
-  // ============================================================
+  // ================= BURN =================
   const handleBurn = async () => {
-    // Deteksi kita ada di chain mana
-    let currentWmrtAddr;
-    
-    if (chainId === CONFIG.NETWORKS.HOODI.CHAIN_ID) {
-        currentWmrtAddr = CONFIG.CONTRACTS.HOODI.WMRT;
-    } else if (chainId === CONFIG.NETWORKS.BASE.CHAIN_ID) {
-        currentWmrtAddr = CONFIG.CONTRACTS.BASE.WMRT;
-    } else {
-        return alert("Ganti network ke Hoodi atau Base!");
-    }
+    const currentKey = getCurrentChainKey();
+    if (!currentKey || currentKey === 'SEPOLIA')
+      return alert("Pindah ke L2 terlebih dahulu!");
 
-    setStatus("⏳ Memproses Burn...");
     try {
-        const freshSigner = await getFreshSigner();
-        const wmrtContract = new ethers.Contract(currentWmrtAddr, wMRTABI, freshSigner);
-        const amountWei = ethers.parseEther(inputs.burnAmount);
-        
-        // Generate Transfer ID Unik
-        const transferId = ethers.id(Date.now().toString());
-        
-        // Panggil fungsi burnForBridge
-        const tx = await wmrtContract.burnForBridge(amountWei, transferId);
-        await tx.wait();
-        
-        setStatus("✅ Burn Berhasil! Token akan dirilis di Sepolia.");
-        updateBalances();
-        setInputs(prev => ({...prev, burnAmount: ""}));
-    } catch (err) {
-        setStatus("❌ Gagal: " + (err.reason || err.message));
+      setStatus(`⏳ Burning on ${currentKey}...`);
+      const signer = await getFreshSigner();
+      const wmrt = new ethers.Contract(CONFIG.CONTRACTS[currentKey].WMRT, wMRTABI, signer);
+      const amt = ethers.parseEther(inputs.burnAmount);
+
+      // 🔐 SAFE ID (NONCE BASED)
+      const nonce = await signer.getNonce();
+      const burnId = ethers.id(`${account}-${nonce}`);
+
+      await (await wmrt.burnForBridge(amt, burnId)).wait();
+      setInputs(p => ({ ...p, burnAmount: "" }));
+      setStatus("✅ Burn berhasil!");
+      updateBalances();
+    } catch (e) {
+      setStatus("❌ " + e.message);
     }
   };
 
   const handleTransfer = async () => {
-      setStatus("⏳ Mengirim Token...");
-      
-      try {
-          // 1. Ambil Fresh Signer
-          const freshSigner = await getFreshSigner();
-          const amountWei = ethers.parseEther(inputs.transferAmount);
-          let tx;
-          
-          // 2. Tentukan Kontrak Berdasarkan Chain Aktif
-          if (chainId === CONFIG.NETWORKS.SEPOLIA.CHAIN_ID) {
-              // Transfer MRT (Sepolia)
-              const token = new ethers.Contract(CONFIG.CONTRACTS.SEPOLIA.TOKEN, MRTABI, freshSigner);
-              tx = await token.transfer(inputs.transferRecipient, amountWei);
-          
-          } else if (chainId === CONFIG.NETWORKS.HOODI.CHAIN_ID) {
-              // Transfer wMRT (Hoodi)
-              const token = new ethers.Contract(CONFIG.CONTRACTS.HOODI.WMRT, wMRTABI, freshSigner);
-              tx = await token.transfer(inputs.transferRecipient, amountWei);
-          
-          } else if (chainId === CONFIG.NETWORKS.BASE.CHAIN_ID) {
-              // Transfer wMRT (Base) <--- LOGIKA BARU
-              const token = new ethers.Contract(CONFIG.CONTRACTS.BASE.WMRT, wMRTABI, freshSigner);
-              tx = await token.transfer(inputs.transferRecipient, amountWei);
-          
-          } else {
-              throw new Error("Network tidak dikenali. Pindah ke Sepolia, Hoodi, atau Base.");
-          }
+    setStatus("⏳ Mengirim Token...");
+    
+    try {
+        // 1. Identifikasi Token & ABI berdasarkan Chain Aktif
+        let tokenAddress, tokenABI;
+        let currentNetworkName = "Unknown";
 
-          // 3. Tunggu Konfirmasi
-          await tx.wait();
-          
-          setStatus("✅ Transfer P2P Berhasil!");
-          updateBalances();
-          setInputs(prev => ({...prev, transferRecipient: "", transferAmount: ""}));
+        switch (String(chainId)) {
+            case CONFIG.NETWORKS.SEPOLIA.CHAIN_ID:
+                tokenAddress = CONFIG.CONTRACTS.SEPOLIA.TOKEN;
+                tokenABI = MRTABI;
+                currentNetworkName = "Sepolia";
+                break;
+            case CONFIG.NETWORKS.HOODI.CHAIN_ID:
+                tokenAddress = CONFIG.CONTRACTS.HOODI.WMRT;
+                tokenABI = wMRTABI;
+                currentNetworkName = "Hoodi";
+                break;
+            case CONFIG.NETWORKS.BASE.CHAIN_ID:
+                tokenAddress = CONFIG.CONTRACTS.BASE.WMRT;
+                tokenABI = wMRTABI;
+                currentNetworkName = "Base";
+                break;
+            case CONFIG.NETWORKS.OPTIMISM.CHAIN_ID:
+                tokenAddress = CONFIG.CONTRACTS.OPTIMISM.WMRT;
+                tokenABI = wMRTABI;
+                currentNetworkName = "Optimism";
+                break;
+            case CONFIG.NETWORKS.ARBITRUM.CHAIN_ID:
+                tokenAddress = CONFIG.CONTRACTS.ARBITRUM.WMRT;
+                tokenABI = wMRTABI;
+                currentNetworkName = "Arbitrum";
+                break;
+            default:
+                throw new Error("Network tidak didukung untuk transfer.");
+        }
 
-      } catch (err) {
-          setStatus("❌ Gagal: " + (err.reason || err.message));
-      }
+        // 2. Validasi Input
+        if (!ethers.isAddress(inputs.transferRecipient)) throw new Error("Alamat penerima tidak valid");
+        if (!inputs.transferAmount) throw new Error("Masukkan jumlah");
+
+        // 3. Eksekusi Transfer
+        const signer = await getFreshSigner();
+        const tokenContract = new ethers.Contract(tokenAddress, tokenABI, signer);
+        const amountWei = ethers.parseEther(inputs.transferAmount);
+
+        setStatus(`⏳ Mengirim ${inputs.transferAmount} di ${currentNetworkName}...`);
+        
+        const tx = await tokenContract.transfer(inputs.transferRecipient, amountWei);
+        await tx.wait();
+
+        setStatus(`✅ Transfer Berhasil di ${currentNetworkName}!`);
+        updateBalances();
+        setInputs(prev => ({ ...prev, transferRecipient: "", transferAmount: "" }));
+
+    } catch (err) {
+        console.error(err);
+        setStatus("❌ Gagal: " + (err.reason || err.message));
+    }
   };
 
   const handleMint = async () => {
@@ -254,125 +242,175 @@ export default function Bridge() {
   // RENDER UI
   // ============================================================
   return (
-     <div className="bridge-container">
-         
-         {status && <div className="status-log">{status}</div>}
-         
-         <div className="bridge-grid">
-             
-             {/* --- KARTU 1: SEPOLIA (ORIGIN) --- */}
-             <div className={`terminal-card ${chainId === CONFIG.NETWORKS.SEPOLIA.CHAIN_ID ? 'active-sepolia' : 'inactive'}`}>
-                 <div className="card-header">
-                    <h3 className="text-green">Jaringan Sepolia Testnet</h3>
+    <div className="bridge-container">
+        {status && <div className="status-log">{status}</div>}
+
+        <div className="bridge-grid">
+            
+            {/* === KARTU 1: SEPOLIA (ORIGIN) === */}
+            <div className={`terminal-card ${chainId === CONFIG.NETWORKS.SEPOLIA.CHAIN_ID ? 'active-sepolia' : 'inactive'}`}>
+                <div className="card-header"><h3 className="text-green">Jaringan Sepolia</h3></div>
+                <div className="balance-row"><span>ETH:</span> <span>{balances.sepolia.eth}</span></div>
+                <div className="balance-row"><span>MRT:</span> <span className="text-green">{balances.sepolia.token}</span></div>
+
+                <div className="input-group mt-20">
+                    <label>DESTINATION CHAIN</label>
+                    <select 
+                        value={destChainKey}
+                        onChange={(e) => setDestChainKey(e.target.value)}
+                        className={`terminal-select select-${destChainKey.toLowerCase()}`}
+                        style={{ 
+                            // Ubah warna teks dropdown sesuai pilihan
+                            color: destChainKey === 'HOODI' ? 'var(--secondary)' :
+                                   destChainKey === 'BASE' ? 'var(--blue)' :
+                                   destChainKey === 'OPTIMISM' ? 'var(--red)' :
+                                   destChainKey === 'ARBITRUM' ? 'var(--indigo)' : 'white',
+                            fontWeight: 'bold'
+                        }}
+                    >
+                        <option value="HOODI">Hoodi Testnet</option>
+                        <option value="BASE">Base Sepolia Testnet</option>
+                        <option value="OPTIMISM">Optimism Sepolia Testnet</option>
+                        <option value="ARBITRUM">Arbitrum Sepolia Testnet</option>
+                    </select>
                  </div>
-                 
-                 {/* Saldo Info */}
-                 <div className="balance-row"><span>ETH:</span> <span>{balances.sepoliaEth}</span></div>
-                 <div className="balance-row"><span>MRT:</span> <span className="text-green">{balances.sepoliaMrt}</span></div>
-                 
-                 {/* PILIHAN TUJUAN (DESTINATION SELECTOR) */}
-                 <div style={{ margin: '15px 0' }}>
-                    <label style={{ fontSize: '0.8rem', color: '#8b949e', display: 'block', marginBottom: '5px' }}>DESTINATION CHAIN:</label>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                        <button 
-                            onClick={() => setDestChain('HOODI')}
-                            style={{ 
-                                flex: 1, 
-                                border: destChain === 'HOODI' ? '1px solid var(--secondary)' : '1px solid #333',
-                                color: destChain === 'HOODI' ? 'var(--secondary)' : '#666',
-                                background: 'transparent'
-                            }}
-                        >
-                            HOODI
-                        </button>
-                        <button 
-                            onClick={() => setDestChain('BASE')}
-                            style={{ 
-                                flex: 1, 
-                                border: destChain === 'BASE' ? '1px solid var(--blue)' : '1px solid #333',
-                                color: destChain === 'BASE' ? 'var(--blue)' : '#666',
-                                background: 'transparent'
-                            }}
-                        >
-                            BASE
-                        </button>
+
+                <div className="mt-20">
+                    <input type="text" placeholder="Jumlah Lock" value={inputs.lockAmount} onChange={(e)=>setInputs({...inputs, lockAmount:e.target.value})} />
+                    <button className="btn-lock" onClick={handleLock} disabled={chainId !== CONFIG.NETWORKS.SEPOLIA.CHAIN_ID}
+                        style={{ 
+                            background: 
+                                destChainKey === 'HOODI' ? 'var(--secondary)' :
+                                destChainKey === 'BASE' ? 'var(--blue)' :
+                                destChainKey === 'OPTIMISM' ? 'var(--red)' :
+                                destChainKey === 'ARBITRUM' ? 'var(--indigo)' : 'var(--primary)',
+                            color: 'black'
+                        }} 
+                    >
+                        LOCK TO {destChainKey} 🔒
+                    </button>
+                </div>
+            </div>
+
+            {/* === KARTU 2: DYNAMIC DESTINATION === */}
+            {/* Logic: Jika user connect L2, tampilkan L2 itu. Jika di Sepolia, tampilkan DestChainKey yang dipilih */}
+            {(() => {
+                const currentKey = getCurrentChainKey();
+                // Jika di L2, pakai L2 itu. Jika di Sepolia/Unknown, pakai Pilihan User.
+                const viewKey = (currentKey && currentKey !== 'SEPOLIA') ? currentKey : destChainKey;
+                
+                const colorClass = getChainColorClass(viewKey);
+                const activeClass = (currentKey === viewKey) ? getCardActiveClass(viewKey) : 'inactive';
+                const data = balances[viewKey.toLowerCase()]; // Ambil saldo dari state
+                const name = CONFIG.NETWORKS[viewKey].NAME;
+                
+                const btnColor = {
+                    'SEPOLIA': 'var(--primary)',
+                    'HOODI': 'var(--secondary)',
+                    'BASE': 'var(--blue)',
+                    'OPTIMISM': 'var(--red)',
+                    'ARBITRUM': 'var(--indigo)'
+                }[currentKey] || '#333';
+
+                return (
+                    <div className={`terminal-card ${activeClass}`}>
+                        <div className="card-header"><h3 className={colorClass}>{name}</h3></div>
+                        <div className="balance-row"><span>ETH:</span> <span>{data.eth}</span></div>
+                        <div className="balance-row"><span>wMRT:</span> <span className={colorClass}>{data.token}</span></div>
+
+                        <div className="mt-20">
+                            <input type="text" placeholder="Jumlah Burn" value={inputs.burnAmount} onChange={(e)=>setInputs({...inputs, burnAmount:e.target.value})}
+                            onFocus={(e) => e.target.style.borderColor = btnColor} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}/>
+                            <button className="btn-burn" onClick={handleBurn} disabled={currentKey !== viewKey}
+                                style={{ 
+                                    backgroundColor: btnColor, 
+                                    color: '#000', // Teks hitam agar kontras
+                                    marginTop: '15px',
+                                    width: '100%',
+                                    padding: '12px',
+                                    border: 'none',
+                                    fontWeight: 'bold',
+                                    borderRadius: '4px',
+                                    cursor: currentKey !== viewKey ? 'not-allowed' : 'pointer',
+                                    opacity: currentKey !== viewKey ? 0.5 : 1
+                                }} >
+                                BURN & RETURN 🔥
+                            </button>
+                        </div>
                     </div>
-                 </div>
+                );
+            })()}
+        </div>
+        
+        {/* --- PANEL TRANSFER P2P (RE-USE EXISTING HELPERS) --- */}
+         {(() => {
+             // 1. Ambil Key Jaringan Aktif (SEPOLIA, HOODI, BASE, dll)
+             // Jika null (unsupported network), default ke SEPOLIA agar tidak error render
+             const currentKey = getCurrentChainKey() || 'SEPOLIA';
+             
+             // 2. Gunakan Helper yang SUDAH ADA untuk Class CSS
+             const cardClass = getCardActiveClass(currentKey); // misal: 'active-base'
+             const textClass = getChainColorClass(currentKey); // misal: 'text-blue'
+             const netName = CONFIG.NETWORKS[currentKey]?.NAME || 'Unknown';
 
-                 <div className="mt-20">
-                    <input 
-                        type="text" placeholder="Jumlah Lock" 
-                        value={inputs.lockAmount} 
-                        onChange={(e)=>setInputs({...inputs, lockAmount:e.target.value})} 
-                    />
-                    <button 
-                        className="btn-lock" 
-                        onClick={handleLock} 
-                        disabled={chainId !== CONFIG.NETWORKS.SEPOLIA.CHAIN_ID}
-                        style={{ background: destChain === 'BASE' ? 'var(--blue)' : 'var(--secondary)' }} // Warna beda untuk Base
-                    >
-                        Lock to {destChain} 🔒
-                    </button>
-                 </div>
-             </div>
+             // 3. Mapping warna background tombol manual (karena helper css cuma return class text)
+             const btnBgColor = {
+                 'SEPOLIA': 'var(--primary)',
+                 'HOODI': 'var(--secondary)',
+                 'BASE': 'var(--blue)',
+                 'OPTIMISM': 'var(--red)',
+                 'ARBITRUM': 'var(--indigo)'
+             }[currentKey] || '#333';
 
-             {/* --- KARTU 2: DESTINATION (DYNAMIC HOODI / BASE) --- */}
-             <div className={`terminal-card ${(chainId === CONFIG.NETWORKS.HOODI.CHAIN_ID || chainId === CONFIG.NETWORKS.BASE.CHAIN_ID) ? 'active-hoodi' : 'inactive'}`}>
-                 <div className="card-header">
-                     <h3 className="text-orange">
-                        {
-                            chainId === CONFIG.NETWORKS.BASE.CHAIN_ID ? 'Jaringan Base Testnet' : 
-                            chainId === CONFIG.NETWORKS.HOODI.CHAIN_ID ? 'Jaringan Hoodi Testnet' :
-                            (destChain === 'BASE' ? 'Jaringan Base Testnet' : 'Jaringan Hoodi Testnet')
-                        }
-                     </h3>
-                 </div>
-                 
-                 {/* LOGIKA SALDO (Sama seperti judul) */}
-                 <div className="balance-row">
-                    <span>ETH:</span> 
-                    <span>
-                        {
-                            chainId === CONFIG.NETWORKS.BASE.CHAIN_ID ? balances.baseEth : 
-                            chainId === CONFIG.NETWORKS.HOODI.CHAIN_ID ? balances.hoodiEth :
-                            (destChain === 'BASE' ? balances.baseEth : balances.hoodiEth)
-                        }
-                    </span>
-                 </div>
-                 <div className="balance-row">
-                    <span>wMRT:</span> 
-                    <span className="text-orange">
-                        {
-                            chainId === CONFIG.NETWORKS.BASE.CHAIN_ID ? balances.baseWmrt : 
-                            chainId === CONFIG.NETWORKS.HOODI.CHAIN_ID ? balances.hoodiWmrt :
-                            (destChain === 'BASE' ? balances.baseWmrt : balances.hoodiWmrt)
-                        }
-                    </span>
-                 </div>
+             return (
+                 <div className={`terminal-card mt-20 ${cardClass}`}>
+                     <div className="card-header">
+                         <h3 className={textClass}>
+                             Transfer P2P 
+                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '10px', textTransform: 'none' }}>
+                                 via {netName}
+                             </span>
+                         </h3>
+                     </div>
+                     
+                     <div className="input-group">
+                        <label>Alamat Penerima (0x...)</label>
+                        <input 
+                            type="text" 
+                            placeholder="0x..." 
+                            value={inputs.transferRecipient} 
+                            onChange={(e)=>setInputs({...inputs, transferRecipient:e.target.value})} 
+                            // Fokus border mengikuti warna jaringan
+                            style={{ borderColor: inputs.transferRecipient ? btnBgColor : '' }}
+                        />
+                     </div>
 
-                 <div className="mt-20">
-                    <input type="text" placeholder="Jumlah Burn" value={inputs.burnAmount} onChange={(e)=>setInputs({...inputs, burnAmount:e.target.value})} />
-                    <button 
-                        className="btn-burn" 
-                        onClick={handleBurn} 
-                        disabled={chainId !== CONFIG.NETWORKS.HOODI.CHAIN_ID && chainId !== CONFIG.NETWORKS.BASE.CHAIN_ID}
-                    >
-                        Burn & Return 🔥
-                    </button>
+                     <div className="input-group">
+                        <label>Jumlah ({currentKey === 'SEPOLIA' ? 'MRT' : 'wMRT'})</label>
+                        <input 
+                            type="number" 
+                            placeholder="0.0" 
+                            value={inputs.transferAmount} 
+                            onChange={(e)=>setInputs({...inputs, transferAmount:e.target.value})} 
+                            style={{ borderColor: inputs.transferAmount ? btnBgColor : '' }}
+                        />
+                     </div>
+                     
+                     <button 
+                        className="btn-transfer" 
+                        onClick={handleTransfer}
+                        style={{ 
+                            backgroundColor: btnBgColor,
+                            color: '#000' // Teks hitam agar kontras
+                        }}
+                     >
+                        Kirim Token 💸
+                     </button>
                  </div>
-             </div>
-         </div>
-
-         {/* Transfer Panel */}
-         <div className="terminal-card mt-20">
-             <h3>Transfer P2P</h3>
-             <input type="text" placeholder="Penerima" value={inputs.transferRecipient} onChange={(e)=>setInputs({...inputs, transferRecipient:e.target.value})} />
-             <input type="text" placeholder="Jumlah" value={inputs.transferAmount} onChange={(e)=>setInputs({...inputs, transferAmount:e.target.value})} />
-             <button className="btn-transfer" onClick={handleTransfer}>Kirim 💸</button>
-         </div>
-
-         {/* Admin Mint Panel */}
-         {isOwner && chainId === CONFIG.NETWORKS.SEPOLIA.CHAIN_ID && (
+             );
+         })()}
+      
+      {isOwner && chainId === CONFIG.NETWORKS.SEPOLIA.CHAIN_ID && (
              <div className="terminal-card mt-20" style={{borderColor: 'var(--secondary)'}}>
                  <h3 style={{color: 'var(--secondary)'}}>👑 ADMIN MINT</h3>
                  <input type="text" placeholder="Penerima" value={inputs.mintRecipient} onChange={(e)=>setInputs({...inputs, mintRecipient:e.target.value})} />
@@ -380,6 +418,6 @@ export default function Bridge() {
                  <button onClick={handleMint} style={{background: 'var(--secondary)', color: 'black', border:'none'}}>MINT TOKEN ⚡</button>
              </div>
          )}
-     </div>
+    </div>
   );
 }

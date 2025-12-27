@@ -8,21 +8,25 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
- * Upgradeable wrapped token for MRT (Transparent Proxy compatible)
- * - wraps an underlying ERC20 (MRT on origin chain)
- * - AccessControl + Pausable
- * - processed mapping to prevent double-mint (if using bridging)
+ * @title wMRT (Upgradeable)
+ * - Menambahkan burnForBridge() untuk cross-chain
+ * - wrap/unwrap dinonaktifkan
+ * - Upgradeable Transparent Proxy compatible
  */
-contract wMRT_old is Initializable, ERC20Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
+contract wMRT is Initializable, ERC20Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     IERC20Upgradeable public under; // underlying token (MRT) address
     bytes32 public constant WRAP_ADMIN_ROLE = keccak256("WRAP_ADMIN_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
-    // prevents double-mint if minting based on cross-chain transfer id
-    mapping(bytes32 => bool) public processed;
+    mapping(bytes32 => bool) public processed; // prevents double-mint
 
+    // ====== EVENTS ======
+    event MintedByAdmin(address indexed to, uint256 amount, bytes32 indexed transferId);
+    event TokensBurned(address indexed user, uint256 amount, bytes32 indexed transferId);
+
+    // ====== INITIALIZER ======
     function initialize(
         string calldata name_,
         string calldata symbol_,
@@ -40,30 +44,27 @@ contract wMRT_old is Initializable, ERC20Upgradeable, AccessControlUpgradeable, 
         _grantRole(PAUSER_ROLE, admin);
     }
 
-    /* ========== PAUSE ========== */
+    // ====== PAUSE ======
     function pause() external onlyRole(PAUSER_ROLE) { _pause(); }
     function unpause() external onlyRole(PAUSER_ROLE) { _unpause(); }
 
-    /* ========== WRAP / UNWRAP ========== */
-    // user wraps underlying token into wMRT
-    function wrap(uint256 amount) external whenNotPaused {
-        require(amount > 0, "zero amount");
-        under.safeTransferFrom(msg.sender, address(this), amount);
-        _mint(msg.sender, amount);
+    // ====== WRAP / UNWRAP (dinonaktifkan) ======
+    function wrap(uint256) external pure {
+        revert("wrap disabled");
     }
 
-    // user unwraps wMRT back to underlying
-    function unwrap(uint256 amount) external whenNotPaused {
+    function unwrap(uint256) external pure {
+        revert("unwrap disabled");
+    }
+
+    // ====== BURN FOR BRIDGE ======
+    function burnForBridge(uint256 amount, bytes32 transferId) external whenNotPaused {
         require(amount > 0, "zero amount");
         _burn(msg.sender, amount);
-        under.safeTransfer(msg.sender, amount);
+        emit TokensBurned(msg.sender, amount, transferId);
     }
 
-    /* ========== ADMIN MINT (from bridge) ==========
-       If your cross-chain relayer sends proofs and you want admin to mint on destination,
-       use this to mint once per transferId */
-    event MintedByAdmin(address indexed to, uint256 amount, bytes32 indexed transferId);
-
+    // ====== ADMIN MINT (cross-chain) ======
     function mintWrapped(address to, uint256 amount, bytes32 transferId)
         external
         onlyRole(WRAP_ADMIN_ROLE)

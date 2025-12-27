@@ -8,12 +8,12 @@ import MRTABI from '../abis/MRT.json';
 import wMRTABI from '../abis/wMRT.json';
 
 export default function Dex() {
-  const { account, chainId } = useWeb3();
-  
+  const { account, chainId, provider } = useWeb3();
+  const chainIdNum = Number(chainId);
+
   const [activeTab, setActiveTab] = useState('swap'); 
   const [status, setStatus] = useState("");
 
-  // State Data Pool
   const [poolData, setPoolData] = useState({
     ethReserve: "0",
     tokenReserve: "0",
@@ -21,125 +21,102 @@ export default function Dex() {
     lpBalance: "0"
   });
 
-  // --- STATE TERPISAH UNTUK DUA KARTU ---
-  
-  // Kartu Kiri: ETH -> Token (Buy)
-  const [buyInputEth, setBuyInputEth] = useState("");       // User ketik ini
-  const [buyOutputToken, setBuyOutputToken] = useState(""); // Ini otomatis (Read-Only)
+  const [buyInputEth, setBuyInputEth] = useState("");       
+  const [buyOutputToken, setBuyOutputToken] = useState(""); 
+  const [sellInputToken, setSellInputToken] = useState(""); 
+  const [sellOutputEth, setSellOutputEth] = useState("");   
 
-  // Kartu Kanan: Token -> ETH (Sell)
-  const [sellInputToken, setSellInputToken] = useState(""); // User ketik ini
-  const [sellOutputEth, setSellOutputEth] = useState("");   // Ini otomatis (Read-Only)
+  const [liqInputs, setLiqInputs] = useState({
+    eth: "",
+    token: "",
+    removeLiqLp: ""
+  });
 
-  // State Liquidity (Tetap)
-  const [liqInputs, setLiqInputs] = useState({ eth: "", token: "", lp: "" });
-
-
-  // --- KONFIGURASI ---
-  const isSepolia = chainId === CONFIG.NETWORKS.SEPOLIA.CHAIN_ID;
-  const isHoodi = chainId === CONFIG.NETWORKS.HOODI.CHAIN_ID;
-
-  let dexAddress, tokenAddress, tokenABI, tokenSymbol, networkName, lptokenSymbol;
-
-  if (isSepolia) {
-    dexAddress = CONFIG.CONTRACTS.SEPOLIA.DEX;
-    tokenAddress = CONFIG.CONTRACTS.SEPOLIA.TOKEN;
-    tokenABI = MRTABI;
-    tokenSymbol = "MRT";
-    networkName = "Sepolia Testnet";
-    lptokenSymbol= "MSLP";
-  } else if (isHoodi) {
-    dexAddress = CONFIG.CONTRACTS.HOODI.DEX;
-    tokenAddress = CONFIG.CONTRACTS.HOODI.WMRT;
-    tokenABI = wMRTABI;
-    tokenSymbol = "wMRT";
-    networkName = "Hoodi Testnet";
-    lptokenSymbol= "WMSLP";
-  }
-
+  // ================= SAFE SIGNER =================
   const getFreshSigner = async () => {
-    if (!window.ethereum) {
-      throw new Error("MetaMask tidak ditemukan");
-    }
-        
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-        
-    return signer; // selalu fresh & stabil di mobile
+    if (!provider) throw new Error("Wallet belum terhubung");
+    return await provider.getSigner();
   };
 
-  // --- UPDATE POOL DATA ---
+  // ================= NETWORK CONFIG =================
+  const getCurrentNetworkConfig = () => {
+    if (chainIdNum === Number(CONFIG.NETWORKS.SEPOLIA.CHAIN_ID))
+      return { name: 'Sepolia', symbol: 'MRT', color: 'var(--primary)', dex: CONFIG.CONTRACTS.SEPOLIA.DEX, token: CONFIG.CONTRACTS.SEPOLIA.TOKEN, abi: MRTABI, rpc: CONFIG.NETWORKS.SEPOLIA.RPC_URL };
+
+    if (chainIdNum === Number(CONFIG.NETWORKS.HOODI.CHAIN_ID))
+      return { name: 'Hoodi', symbol: 'wMRT', color: 'var(--secondary)', dex: CONFIG.CONTRACTS.HOODI.DEX, token: CONFIG.CONTRACTS.HOODI.WMRT, abi: wMRTABI, rpc: CONFIG.NETWORKS.HOODI.RPC_URL };
+
+    if (chainIdNum === Number(CONFIG.NETWORKS.BASE.CHAIN_ID))
+      return { name: 'Base Sepolia', symbol: 'wMRT', color: 'var(--blue)', dex: CONFIG.CONTRACTS.BASE.DEX, token: CONFIG.CONTRACTS.BASE.WMRT, abi: wMRTABI, rpc: CONFIG.NETWORKS.BASE.RPC_URL };
+
+    if (chainIdNum === Number(CONFIG.NETWORKS.OPTIMISM.CHAIN_ID))
+      return { name: 'OP Sepolia', symbol: 'wMRT', color: 'var(--red)', dex: CONFIG.CONTRACTS.OPTIMISM.DEX, token: CONFIG.CONTRACTS.OPTIMISM.WMRT, abi: wMRTABI, rpc: CONFIG.NETWORKS.OPTIMISM.RPC_URL };
+
+    if (chainIdNum === Number(CONFIG.NETWORKS.ARBITRUM.CHAIN_ID))
+      return { name: 'Arbitrum Sepolia', symbol: 'wMRT', color: 'var(--indigo)', dex: CONFIG.CONTRACTS.ARBITRUM.DEX, token: CONFIG.CONTRACTS.ARBITRUM.WMRT, abi: wMRTABI, rpc: CONFIG.NETWORKS.ARBITRUM.RPC_URL };
+
+    return null;
+  };
+
+  const currentNet = getCurrentNetworkConfig();
+
+  // ================= UPDATE POOL =================
   const updatePoolData = async () => {
-    if (!account || (!isSepolia && !isHoodi)) return;
+    if (!account || !currentNet) return;
+
     try {
-      const rpcUrl = isSepolia ? CONFIG.NETWORKS.SEPOLIA.RPC_URL : CONFIG.NETWORKS.HOODI.RPC_URL;
-      const provider = new ethers.JsonRpcProvider(rpcUrl);
-      const dexContract = new ethers.Contract(dexAddress, SwapTokenABI, provider);
-      
-      const reserves = await dexContract.getReserves();
-      // reserves[0] = Token, reserves[1] = ETH
-      const tokenRes = parseFloat(ethers.formatEther(reserves[0]));
-      const ethRes = parseFloat(ethers.formatEther(reserves[1]));
+      const rpcProvider = new ethers.JsonRpcProvider(currentNet.rpc);
+      const dex = new ethers.Contract(currentNet.dex, SwapTokenABI, rpcProvider);
 
-      let price = 0;
-      if (ethRes > 0) {
-         price = tokenRes / ethRes; // 1 ETH dapat sekian Token
-      }
+      const [tokenRes, ethRes] = await dex.getReserves();
+      const token = Number(ethers.formatEther(tokenRes));
+      const eth = Number(ethers.formatEther(ethRes));
+      const price = eth > 0 ? token / eth : 0;
 
-      const lpBal = await dexContract.balanceOf(account);
+      const lpBal = await dex.balanceOf(account);
 
       setPoolData({
-        ethReserve: ethRes.toFixed(4),
-        tokenReserve: tokenRes.toFixed(2),
-        price: price, // Ratio harga
-        lpBalance: parseFloat(ethers.formatEther(lpBal)).toFixed(4)
+        ethReserve: eth.toFixed(4),
+        tokenReserve: token.toFixed(2),
+        price,
+        lpBalance: Number(ethers.formatEther(lpBal)).toFixed(4)
       });
-    } catch (err) {
-      console.error("Gagal fetch pool:", err);
+    } catch (e) {
+      console.error("Pool fetch error:", e);
     }
   };
 
   useEffect(() => {
     updatePoolData();
-    const interval = setInterval(updatePoolData, 5000);
-    return () => clearInterval(interval);
-  }, [account, chainId]);
-
-
-  // --- LOGIKA HITUNG ESTIMASI (TERPISAH) ---
-
-  // 1. Hitung Output Kiri (ETH -> Token)
+    const i = setInterval(updatePoolData, 10000);
+    return () => clearInterval(i);
+  }, [account, chainIdNum]);
+  
+  // --- LOGIKA HITUNG ESTIMASI ---
   const handleBuyInput = (val) => {
     setBuyInputEth(val);
     if (!val || isNaN(val) || parseFloat(poolData.price) === 0) {
-        setBuyOutputToken(""); 
-        return;
+        setBuyOutputToken(""); return;
     }
-    // Est: Input ETH * Price
     const est = parseFloat(val) * parseFloat(poolData.price);
     setBuyOutputToken(est.toFixed(4));
   };
 
-  // 2. Hitung Output Kanan (Token -> ETH)
   const handleSellInput = (val) => {
     setSellInputToken(val);
     if (!val || isNaN(val) || parseFloat(poolData.price) === 0) {
-        setSellOutputEth("");
-        return;
+        setSellOutputEth(""); return;
     }
-    // Est: Input Token / Price
     const est = parseFloat(val) / parseFloat(poolData.price);
     setSellOutputEth(est.toFixed(6));
   };
 
-
-  // --- EKSEKUSI TRANSAKSI ---
-
+  // --- HANDLERS ---
   const executeSwapEthToToken = async () => {
-    setStatus(`⏳ Swapping ETH -> ${tokenSymbol}...`);
+    setStatus(`⏳ Swapping ETH -> ${currentNet.symbol}...`);
     try {
         const signer = await getFreshSigner();
-        const dex = new ethers.Contract(dexAddress, SwapTokenABI, signer);
+        const dex = new ethers.Contract(currentNet.dex, SwapTokenABI, signer);
         const amountIn = ethers.parseEther(buyInputEth);
         
         const tx = await dex.swapEthToToken(0, { value: amountIn });
@@ -152,29 +129,26 @@ export default function Dex() {
   };
 
   const executeSwapTokenToEth = async () => {
-    setStatus(`⏳ Swapping ${tokenSymbol} -> ETH...`);
+    setStatus(`⏳ Swapping ${currentNet.symbol} -> ETH...`);
     try {
-        let tokenABI = isSepolia ? MRTABI : wMRTABI;
-        
         const signer = await getFreshSigner();
-        const dex = new ethers.Contract(dexAddress, SwapTokenABI, signer);
-        const token = new ethers.Contract(tokenAddress, tokenABI, signer);
+        const dex = new ethers.Contract(currentNet.dex, SwapTokenABI, signer);
+        const token = new ethers.Contract(currentNet.token, currentNet.abi, signer);
         const amountIn = ethers.parseEther(sellInputToken);
-        
-        setStatus(`1/2: Approve ${tokenSymbol}...`);
-        await (await token.approve(dexAddress, amountIn)).wait();
-        
+
+        setStatus(`1/2: Approve ${currentNet.symbol}...`);
+        await (await token.approve(currentNet.dex, amountIn)).wait();
+
         setStatus("2/2: Executing Swap...");
         await (await dex.swapTokenToEth(amountIn, 0)).wait();
-        
+
         setStatus("✅ Swap Berhasil!");
-        setSellInputToken(""); 
-        setSellOutputEth("");
+        setSellInputToken(""); setSellOutputEth("");
         setTimeout(updatePoolData, 2000);
     } catch (err) { setStatus("❌ Gagal: " + (err.reason || err.message)); }
   };
 
-  // --- LIQUIDITY HANDLERS (Sama seperti sebelumnya) ---
+  // --- LIQUIDITY HANDLERS ---
   const handleLiquidityCalc = (type, value) => {
     if (type === 'eth') setLiqInputs(prev => ({ ...prev, eth: value }));
     if (type === 'token') setLiqInputs(prev => ({ ...prev, token: value }));
@@ -193,210 +167,164 @@ export default function Dex() {
   const handleAddLiq = async () => {
     setStatus("⏳ Menambah Likuiditas...");
     try {
-        let tokenABI = isSepolia ? MRTABI : wMRTABI;
-
         const signer = await getFreshSigner();
-        const dex = new ethers.Contract(dexAddress, SwapTokenABI, signer);
-        const token = new ethers.Contract(tokenAddress, tokenABI, signer);
+        const dex = new ethers.Contract(currentNet.dex, SwapTokenABI, signer);
+        const token = new ethers.Contract(currentNet.token, currentNet.abi, signer);
 
         const ethWei = ethers.parseEther(liqInputs.eth);
+        const tokenWei = ethers.parseEther(liqInputs.token);
 
-        // --- GET RESERVES ---
-        const [tokenReserveBN, ethReserveBN] = await dex.getReserves();
-        const tokenReserve = BigInt(tokenReserveBN.toString());
-        const ethReserve = BigInt(ethReserveBN.toString());
+        setStatus(`1/2: Approve ${currentNet.symbol}...`);
+        await (await token.approve(currentNet.dex, tokenWei)).wait();
 
-        // --- CALCULATE TOKEN NEEDED ---
-        // kalau pool masih kosong: tokenDesired pakai input user
-        let tokenNeeded;
-        if (ethReserve === 0n) {
-            tokenNeeded = ethers.parseEther(liqInputs.token);
-        } else {
-            tokenNeeded = (ethWei * tokenReserve) / ethReserve;
-        }
-
-        setStatus(`1/2: Approve ${tokenSymbol}...`);
-        await (await token.approve(dexAddress, tokenNeeded)).wait();
-
-        // 2. ADD
         setStatus("2/2: Deposit Pair...");
-        await (await dex.addLiquidity(tokenNeeded, { value: ethWei })).wait();
-        
+        await (await dex.addLiquidity(tokenWei, { value: ethWei })).wait();
+
         setStatus("✅ Likuiditas Ditambahkan!");
         setLiqInputs({ eth: "", token: "", lp: "" });
         setTimeout(updatePoolData, 2000);
-    } catch (err) {
-        console.log(err);
-        setStatus("❌ Gagal: " + err.message);
-    }
+    } catch (err) { setStatus("❌ Gagal: " + (err.reason || err.message)); }
   };
 
   const handleRemoveLiq = async () => {
-    try {
-        if (!liqInputs.removeLiqLp || Number(liqInputs.removeLiqLp) <= 0) {
-            return setStatus("❌ Masukkan jumlah LP terlebih dahulu.");
-        }
-
-        setStatus("⏳ Menarik Likuiditas...");
-
-        const signer = await getFreshSigner();
-        const dex = new ethers.Contract(dexAddress, SwapTokenABI, signer);
-
-        const lpWei = ethers.parseEther(liqInputs.removeLiqLp);
-
-        // Optional: cek balance LP biar tidak error burn
-        const userAddr = await signer.getAddress();
-        const lpBalance = await dex.balanceOf(userAddr);
-        if (lpWei > lpBalance) {
-            return setStatus("❌ Jumlah LP melebihi saldo kamu.");
-        }
-
-        await (await dex.removeLiquidity(lpWei, 0, 0)).wait();
-
-        setStatus("✅ Likuiditas Ditarik!");
-        setLiqInputs(prev => ({ ...prev, lp: "" }));
-        setTimeout(updatePoolData, 2000);
-
-    } catch (err) {
-        setStatus("❌ Gagal: " + err.message);
-    }
+      setStatus("⏳ Menarik Likuiditas...");
+      try {
+          const signer = await getFreshSigner();
+          const dex = new ethers.Contract(currentNet.dex, SwapTokenABI, signer);
+          const lpWei = ethers.parseEther(liqInputs.removeLiqLp);
+          await (await dex.removeLiquidity(lpWei, 0, 0)).wait();
+          setStatus("✅ Likuiditas Ditarik!");
+          setLiqInputs(prev => ({ ...prev, removeLiqLp: "" }));
+          setTimeout(updatePoolData, 2000);
+      } catch (err) { setStatus("❌ Gagal: " + err.message); }
   };
 
+  // --- RENDER ---
 
-  if (!isSepolia && !isHoodi) return <div className="access-denied"><p>Network tidak didukung.</p></div>;
+  if (!currentNet) {
+    return (
+        <div className="access-denied">
+            <p>⚠️ Jaringan Tidak Didukung</p>
+            <p>Silakan pindah ke Sepolia, Hoodi, Base, Optimism, atau Arbitrum.</p>
+        </div>
+    );
+  }
+  
+  const buttonStyle = {
+      backgroundColor: currentNet.color,
+      color: '#000', // Teks hitam agar kontras
+      marginTop: '20px',
+      width: '100%',
+      padding: '12px',
+      border: 'none',
+      fontWeight: 'bold',
+      borderRadius: '4px',
+      cursor: 'pointer'
+  };
 
   return (
-    <div className="bridge-container">
-      
+    <div className="dex-wrapper">
       {status && <div className="status-log">{status}</div>}
 
-      {/* HEADER POOL STATUS */}
-      <div className="terminal-card mb-20" style={{ borderColor: isSepolia ? 'var(--primary)' : 'var(--secondary)' }}>
+      {/* HEADER STATUS POOL (DYNAMIC COLOR) */}
+      <div 
+        className="terminal-card mb-20" 
+        style={{ borderColor: currentNet.color, boxShadow: `0 0 15px ${currentNet.color}1a` }}
+      >
         <div className="card-header">
-             <h3 style={{ color: isSepolia ? 'var(--primary)' : 'var(--secondary)' }}>
-                POOL: ETH / {tokenSymbol}
+             <h3 style={{ color: currentNet.color }}>
+                POOL: ETH / {currentNet.symbol} ({currentNet.name})
              </h3>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap' }}>
-            <span>Reserves: <b>{poolData.ethReserve} ETH</b> + <b>{poolData.tokenReserve} {tokenSymbol}</b></span>
-            <span>Rate: <b>1 ETH ≈ {parseFloat(poolData.price).toFixed(4)} {tokenSymbol}</b></span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <span>ETH Reserve: <b>{poolData.ethReserve}</b></span>
+            <span>{currentNet.symbol} Reserve: <b>{poolData.tokenReserve}</b></span>
+            <span>Rate: <b>1 ETH ≈ {poolData.price} {currentNet.symbol}</b></span>
         </div>
       </div>
 
-      {/* TAB NAVIGATION */}
+      {/* NAVIGASI TAB */}
       <div className="dex-tabs">
-         <button className={activeTab==='swap'?'active':''} onClick={() => setActiveTab('swap')}>SWAP</button>
-         <button className={activeTab==='liquidity'?'active':''} onClick={() => setActiveTab('liquidity')}>LIQUIDITY</button>
+         <button 
+            className={activeTab==='swap'?'active':''} 
+            onClick={() => setActiveTab('swap')}
+            style={activeTab === 'swap' ? { borderColor: currentNet.color, color: currentNet.color } : {}}
+         >SWAP</button>
+         <button 
+            className={activeTab==='liquidity'?'active':''} 
+            onClick={() => setActiveTab('liquidity')}
+            style={activeTab === 'liquidity' ? { borderColor: currentNet.color, color: currentNet.color } : {}}
+         >LIQUIDITY</button>
       </div>
 
-      {/* === LAYOUT GRID DUA KARTU (ORIGINAL STYLE) === */}
+      {/* TAB SWAP */}
       {activeTab === 'swap' && (
         <div className="bridge-grid">
-            
-            {/* KARTU 1: BELI (ETH -> TOKEN) */}
+            {/* KARTU BELI */}
             <div className="terminal-card">
-                <h3>Beli {tokenSymbol}</h3>
-                <p style={{fontSize:'0.8rem', color:'#888', marginBottom:'10px'}}>Gunakan ETH untuk membeli Token</p>
-                
-                {/* INPUT (PAY) */}
+                <h3>Beli {currentNet.symbol}</h3>
                 <div className="input-group">
                     <label>Bayar (ETH)</label>
-                    <input 
-                        type="number" placeholder="0.0"
-                        value={buyInputEth}
-                        onChange={(e) => handleBuyInput(e.target.value)}
-                    />
+                    <input type="number" placeholder="0.0" value={buyInputEth} onChange={(e) => handleBuyInput(e.target.value)} />
                 </div>
-
-                {/* OUTPUT (RECEIVE - READ ONLY) */}
                 <div className="input-group mt-10">
-                    <label>Terima ({tokenSymbol}) <small>Estimasi</small></label>
-                    <input 
-                        type="text" placeholder="0.0" readOnly
-                        value={buyOutputToken}
-                        style={{ background: '#1e1e1e', color: '#8b949e', cursor: 'not-allowed' }} 
-                    />
+                    <label>Terima ({currentNet.symbol}) <small>Estimasi</small></label>
+                    <input type="text" placeholder="0.0" readOnly value={buyOutputToken} />
                 </div>
-
-                <button className="btn-transfer mt-20" onClick={executeSwapEthToToken}>
+                <button style={buttonStyle} onClick={executeSwapEthToToken}>
                     SWAP ⬇️
                 </button>
             </div>
 
-            {/* KARTU 2: JUAL (TOKEN -> ETH) */}
+            {/* KARTU JUAL */}
             <div className="terminal-card">
-                <h3>Jual {tokenSymbol}</h3>
-                <p style={{fontSize:'0.8rem', color:'#888', marginBottom:'10px'}}>Tukar Token kembali ke ETH</p>
-
-                {/* INPUT (PAY) */}
+                <h3>Jual {currentNet.symbol}</h3>
                 <div className="input-group">
-                    <label>Bayar ({tokenSymbol})</label>
-                    <input 
-                        type="number" placeholder="0.0"
-                        value={sellInputToken}
-                        onChange={(e) => handleSellInput(e.target.value)}
-                    />
+                    <label>Bayar ({currentNet.symbol})</label>
+                    <input type="number" placeholder="0.0" value={sellInputToken} onChange={(e) => handleSellInput(e.target.value)} />
                 </div>
-
-                {/* OUTPUT (RECEIVE - READ ONLY) */}
                 <div className="input-group mt-10">
                     <label>Terima (ETH) <small>Estimasi</small></label>
-                    <input 
-                        type="text" placeholder="0.0" readOnly
-                        value={sellOutputEth}
-                        style={{ background: '#1e1e1e', color: '#8b949e', cursor: 'not-allowed' }}
-                    />
+                    <input type="text" placeholder="0.0" readOnly value={sellOutputEth} />
                 </div>
-
-                <button className="btn-transfer mt-20" onClick={executeSwapTokenToEth} style={{ background: '#8e44ad' }}>
+                <button style={buttonStyle} onClick={executeSwapTokenToEth}>
                     APPROVE & SWAP ⬆️
                 </button>
             </div>
         </div>
       )}
 
-      {/* CONTENT LIQUIDITY (TETAP SAMA) */}
+      {/* TAB LIQUIDITY */}
       {activeTab === 'liquidity' && (
         <div>
-            <p style={{textAlign: 'center', marginBottom: '20px'}}>
-                Saldo LP Token: <b style={{color: 'var(--blue)'}}>{poolData.lpBalance} {lptokenSymbol}</b>
+            <p style={{ textAlign: 'center', marginBottom: '20px' }}>
+                Saldo LP Token: <b style={{ color: currentNet.color }}>{poolData.lpBalance} LP</b>
             </p>
             <div className="bridge-grid">
                 <div className="liquidity-card">
                     <h3>Tambah Likuiditas</h3>
-                    <label>ETH</label>
                     <div className="input-group">
-                        <input 
-                            type="number" 
-                            value={liqInputs.eth} 
-                            onChange={(e)=>handleLiquidityCalc('eth', e.target.value)}
-                        />
+                        <label>ETH</label>
+                        <input type="number" value={liqInputs.eth} onChange={(e)=>handleLiquidityCalc('eth', e.target.value)} />
                     </div>
-                    <label>{tokenSymbol}</label>
                     <div className="input-group">
-                        <input 
-                            type="number" 
-                            value={liqInputs.token} 
-                            onChange={(e)=>handleLiquidityCalc('token', e.target.value)}
-                        />
+                        <label>{currentNet.symbol}</label>
+                        <input type="number" value={liqInputs.token} onChange={(e)=>handleLiquidityCalc('token', e.target.value)} />
                     </div>
-                    <button className="btn-lock mt-20" onClick={handleAddLiq}>ADD +</button>
+                    <button style={buttonStyle} onClick={handleAddLiq}>ADD +</button>
                 </div>
                 <div className="liquidity-card">
                     <h3>Tarik Likuiditas</h3>
-                    <label>Jumlah LP</label>
                     <div className="input-group">
-                        <input 
-                            type="number" 
-                            value={liqInputs.removeLiqLp} 
-                            onChange={(e)=>setLiqInputs({...liqInputs, removeLiqLp: e.target.value})}
-                        />
+                        <label>Jumlah LP</label>
+                        <input type="number" value={liqInputs.removeLiqLp} onChange={(e)=>setLiqInputs({...liqInputs, removeLiqLp: e.target.value})} />
                     </div>
-                    <button className="btn-burn mt-20" onClick={handleRemoveLiq}>REMOVE -</button>
+                    <button style={buttonStyle} onClick={handleRemoveLiq}>REMOVE -</button>
                 </div>
             </div>
         </div>
       )}
+
     </div>
   );
 }

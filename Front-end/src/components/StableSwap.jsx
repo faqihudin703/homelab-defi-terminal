@@ -10,21 +10,22 @@ import TokenAABI from "../abis/MRTT.json";
 import TokenBABI from "../abis/MRTC.json";
 
 export default function StableSwap() {
-    const { account, chainId } = useWeb3();
+    const { account, chainId, provider } = useWeb3();
+    const chainIdNum = Number(chainId);
+
     const [activeTab, setActiveTab] = useState("swap");
     const [status, setStatus] = useState("");
-    const [feeBps, setFeeBps] = useState(4); // default 4 bps (0.04%) jika belum terbaca
+    const [feeBps, setFeeBps] = useState(4);
     const [userBalA, setUserBalA] = useState("0");
     const [userBalB, setUserBalB] = useState("0");
     const [isMinter, setIsMinter] = useState(false);
 
-    // Raw pool data (BigInt)
     const [poolData, setPoolData] = useState({
-        reserveA: 0,
-        reserveB: 0,
+        reserveA: 0n,
+        reserveB: 0n,
         decimalsA: 18,
         decimalsB: 18,
-        lpBalance: 0,
+        lpBalance: 0n,
         symbolA: "MRTT",
         symbolB: "MRTC"
     });
@@ -36,7 +37,7 @@ export default function StableSwap() {
     const [liqA, setLiqA] = useState("");
     const [liqB, setLiqB] = useState("");
     const [removeLp, setRemoveLp] = useState("");
-    
+
     const [inputs, setInputs] = useState({
         mintRecipientA: "",
         mintAmountA: "",
@@ -44,55 +45,46 @@ export default function StableSwap() {
         mintAmountB: ""
     });
 
-    const isSepolia = chainId === CONFIG.NETWORKS.SEPOLIA.CHAIN_ID;
+    const isSepolia = chainIdNum === Number(CONFIG.NETWORKS.SEPOLIA.CHAIN_ID);
     const STABLE = CONFIG.CONTRACTS.SEPOLIA.STABLE;
 
+    // ================= SAFE SIGNER =================
     const getFreshSigner = async () => {
-        if (!window.ethereum) {
-            throw new Error("MetaMask tidak ditemukan");
+        if (!provider) {
+            throw new Error("Wallet belum terhubung");
         }
-        
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        
-        return signer; // selalu fresh & stabil di mobile
+        return await provider.getSigner();
     };
-    
-    // ======================================
-    // LOAD POOL DATA
-    // ======================================
+
+    // ================= LOAD POOL =================
     const updateData = async () => {
         if (!account || !isSepolia) return;
 
         try {
-            const provider = new ethers.JsonRpcProvider(CONFIG.NETWORKS.SEPOLIA.RPC_URL);
+            const rpc = new ethers.JsonRpcProvider(CONFIG.NETWORKS.SEPOLIA.RPC_URL);
 
-            const stable = new ethers.Contract(STABLE.ADDR, StableSwapABI, provider);
-            const fee = await stable.feeBps();
-            const feeNum = Number(fee); // fee in bps
-            const tokenA = new ethers.Contract(STABLE.TOKEN_A, TokenAABI, provider);
-            const tokenB = new ethers.Contract(STABLE.TOKEN_B, TokenBABI, provider);
+            const stable = new ethers.Contract(STABLE.ADDR, StableSwapABI, rpc);
+            const tokenA = new ethers.Contract(STABLE.TOKEN_A, TokenAABI, rpc);
+            const tokenB = new ethers.Contract(STABLE.TOKEN_B, TokenBABI, rpc);
 
-            // Raw BigInt
-            const resA = await tokenA.balanceOf(STABLE.ADDR);
-            const resB = await tokenB.balanceOf(STABLE.ADDR);
-            const lpBal = await stable.balanceOf(account);
+            const [fee, resA, resB, lpBal, decA, decB, symA, symB, balA, balB] =
+                await Promise.all([
+                    stable.feeBps(),
+                    tokenA.balanceOf(STABLE.ADDR),
+                    tokenB.balanceOf(STABLE.ADDR),
+                    stable.balanceOf(account),
+                    tokenA.decimals(),
+                    tokenB.decimals(),
+                    tokenA.symbol(),
+                    tokenB.symbol(),
+                    tokenA.balanceOf(account),
+                    tokenB.balanceOf(account),
+                ]);
 
-            // Decimals & symbols
-            const decA = await tokenA.decimals();
-            const decB = await tokenB.decimals();
-            const symA = await tokenA.symbol();
-            const symB = await tokenB.symbol();
-            
-            // BALANCE USER
-            const balA = await tokenA.balanceOf(account);
-            const balB = await tokenB.balanceOf(account);
-            
-            setUserBalA(ethers.formatUnits(balA, Number(decA)));
-            setUserBalB(ethers.formatUnits(balB, Number(decB)));
-            
-            setFeeBps(feeNum);
-            
+            setFeeBps(Number(fee));
+            setUserBalA(ethers.formatUnits(balA, decA));
+            setUserBalB(ethers.formatUnits(balB, decB));
+
             setPoolData({
                 reserveA: resA,
                 reserveB: resB,
@@ -102,48 +94,29 @@ export default function StableSwap() {
                 symbolA: symA,
                 symbolB: symB
             });
-            
-            
-        } catch (err) {
-            console.error("updateData Error:", err);
+        } catch (e) {
+            console.error("updateData error:", e);
         }
     };
-    
+
     const checkMinter = async () => {
         if (!account) return;
-
         try {
-            const provider = new ethers.JsonRpcProvider(CONFIG.NETWORKS.SEPOLIA.RPC_URL);
-        
-            // Token A
-            const tokenA = new ethers.Contract(
-                CONFIG.CONTRACTS.SEPOLIA.STABLE.TOKEN_A,
-                TokenAABI,
-                provider
-            );
+            const rpc = new ethers.JsonRpcProvider(CONFIG.NETWORKS.SEPOLIA.RPC_URL);
+            const tokenA = new ethers.Contract(STABLE.TOKEN_A, TokenAABI, rpc);
+            const tokenB = new ethers.Contract(STABLE.TOKEN_B, TokenBABI, rpc);
 
-            // Token B
-            const tokenB = new ethers.Contract(
-                CONFIG.CONTRACTS.SEPOLIA.STABLE.TOKEN_B,
-                TokenBABI,
-                provider
-            );
-            
-            const MINTER_ROLE_A = await tokenA.MINTER_ROLE();
-            const MINTER_ROLE_B = await tokenB.MINTER_ROLE();
+            const [roleA, roleB] = await Promise.all([
+                tokenA.MINTER_ROLE(),
+                tokenB.MINTER_ROLE()
+            ]);
 
-            // Cek role di token A dan token B
-            const isMinterA = await tokenA.hasRole(MINTER_ROLE_A, account);
-            const isMinterB = await tokenB.hasRole(MINTER_ROLE_B, account);
+            const ok =
+                (await tokenA.hasRole(roleA, account)) &&
+                (await tokenB.hasRole(roleB, account));
 
-            const finalStatus = isMinterA && isMinterB;
-
-            console.log("MINTER A:", isMinterA, "MINTER B:", isMinterB);
-
-            setIsMinter(finalStatus);
-
-        } catch (e) {
-            console.error("Gagal cek MINTER_ROLE:", e);
+            setIsMinter(ok);
+        } catch {
             setIsMinter(false);
         }
     };
@@ -151,9 +124,9 @@ export default function StableSwap() {
     useEffect(() => {
         updateData();
         checkMinter();
-        const interval = setInterval(updateData, 10000);
-        return () => clearInterval(interval);
-    }, [account, chainId]);
+        const i = setInterval(updateData, 10000);
+        return () => clearInterval(i);
+    }, [account, chainIdNum]);
 
     // ======================================
     // SWAP PREVIEW (x * y = k)
@@ -400,6 +373,7 @@ export default function StableSwap() {
     const uiResA = Number(ethers.formatUnits(poolData.reserveA, poolData.decimalsA)).toFixed(2);
     const uiResB = Number(ethers.formatUnits(poolData.reserveB, poolData.decimalsB)).toFixed(2);
     const uiLp = Number(ethers.formatUnits(poolData.lpBalance, 18)).toFixed(4);
+    const feePercent = (feeBps / 100).toFixed(2);
 
     // ======================================
     // RENDER
@@ -439,6 +413,13 @@ export default function StableSwap() {
                 Rate:
                 <b>
                   1 {poolData.symbolA} ≈ {(uiResB / uiResA).toFixed(4)} {poolData.symbolB}
+                </b>
+            </span>
+            
+            <span>
+                Fee:
+                <b style={{ color: 'var(--primary)' }}>
+                    {feeBps} bps ({feePercent}%)
                 </b>
             </span>
         </div>

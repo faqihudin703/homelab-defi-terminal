@@ -1,14 +1,17 @@
-# Dockerfile (Versi Tanpa npm install)
-
-# Gunakan base image Node.js yang ringan
+# Gunakan base image Node.js Alpine (Ringan)
 FROM node:18-alpine
 
-# Tetapkan direktori kerja di dalam container
 WORKDIR /usr/src/app
 
-# Salin SEMUA file dari folder proyek di server ke dalam container
-# Ini sudah termasuk index.js, abi/, keystore/, dan node_modules/
+# 1. Salin file definisi dependency dulu
+COPY package*.json ./
+
+# 2. Jalankan install DI DALAM Docker (karena host tidak punya npm)
+# --production agar hanya menginstall dependency penting (hemat size)
+RUN npm install --production
+
+# 3. Salin sisa file kode (index.js, folder abi, keystore, dll)
 COPY . .
 
-# Perintah yang akan dijalankan saat container dimulai
+# Perintah jalankan
 CMD [ "node", "index.js" ]

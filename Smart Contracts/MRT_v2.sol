@@ -12,7 +12,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
  * - Pausable
  * - initializer instead of constructor
  */
-contract MRT_old is Initializable, ERC20Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
+contract MRT is Initializable, ERC20Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
     bytes32 public constant BRIDGE_ROLE = keccak256("BRIDGE_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
@@ -44,8 +44,8 @@ contract MRT_old is Initializable, ERC20Upgradeable, AccessControlUpgradeable, P
         _mint(to, amount);
     }
 
-    function burnFromBridge(address from, uint256 amount) external onlyRole(BRIDGE_ROLE) whenNotPaused {
-        _burn(from, amount);
+    function burnFromBridge(address /*from*/, uint256 /*amount*/) external onlyRole(BRIDGE_ROLE) whenNotPaused {
+        revert("burnFromBridge disabled");
     }
 
     function burn(uint256 amount) external whenNotPaused {

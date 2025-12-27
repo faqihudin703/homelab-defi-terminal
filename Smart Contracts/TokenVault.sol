@@ -9,7 +9,7 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
- * TokenVault
+ * TokenVault V2 (Final for testnet)
  *
  * - Maintains storage layout of V1 (token, roles, nonce, __gap)
  * - Disables legacy lock() and release() (revert) to force V2 usage (safe for testnet)
@@ -19,7 +19,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
  *
  * Note: After upgrading implementation on proxy, call initializeV2() once.
  */
-contract TokenVault is Initializable, ReentrancyGuardUpgradeable, AccessControlUpgradeable, PausableUpgradeable {
+contract TokenVault_old is Initializable, ReentrancyGuardUpgradeable, AccessControlUpgradeable, PausableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     /* =========================
