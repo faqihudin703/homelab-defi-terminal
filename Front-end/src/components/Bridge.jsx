@@ -98,6 +98,24 @@ export default function Bridge() {
     if (chainIdNum === Number(CONFIG.NETWORKS.ARBITRUM.CHAIN_ID)) return 'ARBITRUM';
     return null;
   };
+  
+  const getChainColorClass = (key) => { 
+      if (key === 'SEPOLIA') return 'text-green'; 
+      if (key === 'HOODI') return 'text-orange'; 
+      if (key === 'BASE') return 'text-blue'; 
+      if (key === 'OPTIMISM') return 'text-optimism'; 
+      if (key === 'ARBITRUM') return 'text-arbitrum'; 
+      return ''; 
+  }; 
+  
+  const getCardActiveClass = (key) => { 
+      if (key === 'SEPOLIA') return 'active-sepolia'; 
+      if (key === 'HOODI') return 'active-hoodi'; 
+      if (key === 'BASE') return 'active-base'; 
+      if (key === 'OPTIMISM') return 'active-optimism'; 
+      if (key === 'ARBITRUM') return 'active-arbitrum'; 
+      return 'inactive'; 
+  };
 
   // ================= LOCK =================
   const handleLock = async () => {
@@ -248,7 +266,7 @@ export default function Bridge() {
         <div className="bridge-grid">
             
             {/* === KARTU 1: SEPOLIA (ORIGIN) === */}
-            <div className={`terminal-card ${chainId === CONFIG.NETWORKS.SEPOLIA.CHAIN_ID ? 'active-sepolia' : 'inactive'}`}>
+            <div className={`terminal-card ${Number(chainId) === Number(CONFIG.NETWORKS.SEPOLIA.CHAIN_ID) ? 'active-sepolia' : 'inactive'}`}>
                 <div className="card-header"><h3 className="text-green">Jaringan Sepolia</h3></div>
                 <div className="balance-row"><span>ETH:</span> <span>{balances.sepolia.eth}</span></div>
                 <div className="balance-row"><span>MRT:</span> <span className="text-green">{balances.sepolia.token}</span></div>
@@ -410,7 +428,7 @@ export default function Bridge() {
              );
          })()}
       
-      {isOwner && chainId === CONFIG.NETWORKS.SEPOLIA.CHAIN_ID && (
+      {isOwner && Number(chainId) === Number(CONFIG.NETWORKS.SEPOLIA.CHAIN_ID) && (
              <div className="terminal-card mt-20" style={{borderColor: 'var(--secondary)'}}>
                  <h3 style={{color: 'var(--secondary)'}}>👑 ADMIN MINT</h3>
                  <input type="text" placeholder="Penerima" value={inputs.mintRecipient} onChange={(e)=>setInputs({...inputs, mintRecipient:e.target.value})} />

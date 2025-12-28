@@ -27,11 +27,11 @@ export default function NftTerminal() {
   // --- 1. KONFIGURASI DINAMIS (WARNA & NAMA) ---
   const getCurrentNetworkConfig = () => {
       const chainIdNum = Number(chainId);
-      if (chainIdNum === CONFIG.NETWORKS.SEPOLIA.CHAIN_ID) return { type: 'SEPOLIA', name: 'Sepolia', color: 'var(--primary)' };
-      if (chainIdNum === CONFIG.NETWORKS.HOODI.CHAIN_ID) return { type: 'HOODI', name: 'Hoodi', color: 'var(--secondary)' };
-      if (chainIdNum === CONFIG.NETWORKS.BASE.CHAIN_ID) return { type: 'BASE', name: 'Base Sepolia', color: 'var(--blue)' };
-      if (chainIdNum === CONFIG.NETWORKS.OPTIMISM.CHAIN_ID) return { type: 'OPTIMISM', name: 'OP Sepolia', color: 'var(--red)' };
-      if (chainIdNum === CONFIG.NETWORKS.ARBITRUM.CHAIN_ID) return { type: 'ARBITRUM', name: 'Arbitrum Sepolia', color: 'var(--indigo)' };
+      if (chainIdNum === Number(CONFIG.NETWORKS.SEPOLIA.CHAIN_ID)) return { type: 'SEPOLIA', name: 'Sepolia', color: 'var(--primary)' };
+      if (chainIdNum === Number(CONFIG.NETWORKS.HOODI.CHAIN_ID)) return { type: 'HOODI', name: 'Hoodi', color: 'var(--secondary)' };
+      if (chainIdNum === Number(CONFIG.NETWORKS.BASE.CHAIN_ID)) return { type: 'BASE', name: 'Base Sepolia', color: 'var(--blue)' };
+      if (chainIdNum === Number(CONFIG.NETWORKS.OPTIMISM.CHAIN_ID)) return { type: 'OPTIMISM', name: 'OP Sepolia', color: 'var(--red)' };
+      if (chainIdNum === Number(CONFIG.NETWORKS.ARBITRUM.CHAIN_ID)) return { type: 'ARBITRUM', name: 'Arbitrum Sepolia', color: 'var(--indigo)' };
       return null;
   };
 
